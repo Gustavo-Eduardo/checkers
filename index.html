@@ -1,14 +1,234 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
+  <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
-  <title>Hello from Electron renderer!</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Computer Vision Checkers</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      font-family: 'Arial', sans-serif;
+      color: white;
+      overflow: hidden;
+    }
+
+    .game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .game-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .game-title {
+      font-size: 2.5em;
+      font-weight: bold;
+      margin: 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .game-subtitle {
+      font-size: 1.2em;
+      margin: 5px 0 0 0;
+      opacity: 0.8;
+    }
+
+    .canvas-container {
+      position: relative;
+      border: 4px solid #8B4513;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      background: #2C2C2C;
+    }
+
+    #gameCanvas {
+      display: block;
+      border-radius: 6px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .btn-primary {
+      background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: linear-gradient(45deg, #4ECDC4, #44A08D);
+      color: white;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    .status-panel {
+      display: flex;
+      gap: 30px;
+      margin-top: 15px;
+      font-size: 1.1em;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .status-indicator.active {
+      background: #4ECDC4;
+    }
+
+    .status-indicator.inactive {
+      background: #FF6B6B;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .vision-info {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 0.9em;
+      min-width: 150px;
+    }
+
+    .vision-info.hidden {
+      display: none;
+    }
+
+    .calibration-panel {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      padding: 30px;
+      border-radius: 10px;
+      text-align: center;
+      display: none;
+    }
+
+    .calibration-panel.active {
+      display: block;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      z-index: 1000;
+    }
+
+    .modal-overlay.active {
+      display: block;
+    }
+  </style>
 </head>
 
 <body>
-  <p id="python-data">👋</p>
-  <script src="./main.js"> </script>
+  <div class="game-container">
+    <div class="game-header">
+      <h1 class="game-title">Computer Vision Checkers</h1>
+      <p class="game-subtitle">Point with your red marker to play</p>
+    </div>
+
+    <div class="canvas-container">
+      <canvas id="gameCanvas" width="800" height="800"></canvas>
+      
+      <div id="visionInfo" class="vision-info hidden">
+        <div><strong>Vision Status</strong></div>
+        <div>Marker: <span id="markerStatus">Not Detected</span></div>
+        <div>Confidence: <span id="confidenceValue">0%</span></div>
+        <div>Gesture: <span id="gestureState">NONE</span></div>
+        <div>Position: <span id="markerPosition">-</span></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="resetBtn" class="btn btn-primary">New Game</button>
+      <button id="calibrateBtn" class="btn btn-secondary">Calibrate Camera</button>
+      <button id="debugBtn" class="btn btn-secondary">Debug Mode</button>
+    </div>
+
+    <div class="status-panel">
+      <div class="status-item">
+        <div id="cameraIndicator" class="status-indicator inactive"></div>
+        <span>Camera</span>
+      </div>
+      <div class="status-item">
+        <div id="visionIndicator" class="status-indicator inactive"></div>
+        <span>Vision</span>
+      </div>
+      <div class="status-item">
+        <div id="gameIndicator" class="status-indicator active"></div>
+        <span>Game Ready</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calibration Modal -->
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="calibration-panel">
+      <h2>Camera Calibration</h2>
+      <p id="calibrationInstructions">Point your red marker at the top-left corner of where you want the board to be</p>
+      <div class="controls">
+        <button id="calibrationNext" class="btn btn-primary">Next Corner</button>
+        <button id="calibrationCancel" class="btn btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load JavaScript modules -->
+  <script src="./frontend/game/checkers-engine.js"></script>
+  <script src="./frontend/game/coordinate-mapper.js"></script>
+  <script src="./frontend/game/interaction-manager.js"></script>
+  <script src="./frontend/renderer/canvas-renderer.js"></script>
+  <script src="./main.js"></script>
 </body>
 
 </html>
