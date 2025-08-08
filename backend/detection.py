@@ -212,6 +212,12 @@ class EnhancedDetection:
             # Detect marker
             marker_pos = self.detect_marker(frame)
             
+            # DEBUG: Log detection details
+            if marker_pos:
+                print(f"DEBUG: Raw detection - x:{marker_pos.x}, y:{marker_pos.y}, confidence:{marker_pos.confidence:.3f}, threshold:{self.confidence_threshold}", file=sys.stderr)
+            else:
+                print("DEBUG: No marker detected", file=sys.stderr)
+            
             if marker_pos and marker_pos.confidence > self.confidence_threshold:
                 # Smooth position
                 smoothed_pos = self.smooth_position(marker_pos)
@@ -222,6 +228,9 @@ class EnhancedDetection:
                 
                 # Update gesture recognition
                 gesture_state = self.gesture_recognizer.update(smoothed_pos)
+                
+                # DEBUG: Log processing details
+                print(f"DEBUG: Smoothed pos - x:{smoothed_pos.x}, y:{smoothed_pos.y}, stable:{is_stable}, gesture:{gesture_state.state}", file=sys.stderr)
                 
                 # Send enhanced data to frontend
                 output_data = {
@@ -243,6 +252,12 @@ class EnhancedDetection:
                 print(json.dumps(output_data))
                 sys.stdout.flush()
             else:
+                # DEBUG: Log why no detection was sent
+                if marker_pos:
+                    print(f"DEBUG: Marker rejected - confidence {marker_pos.confidence:.3f} < threshold {self.confidence_threshold}", file=sys.stderr)
+                else:
+                    print("DEBUG: No marker found in frame", file=sys.stderr)
+                    
                 # Send no detection data
                 no_detection = {
                     "camera_dimension": {"x": frame.shape[1], "y": frame.shape[0]},

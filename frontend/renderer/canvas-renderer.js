@@ -578,10 +578,12 @@ class CanvasRenderer {
     }
     
     updateVisionMarker(marker) {
+        console.log('[DEBUG] Canvas renderer: Updating vision marker to:', marker);
         this.visionMarker = marker;
     }
     
     clearVisionMarker() {
+        console.log('[DEBUG] Canvas renderer: Clearing vision marker');
         this.visionMarker = null;
     }
     

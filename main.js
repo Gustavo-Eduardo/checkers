@@ -133,6 +133,8 @@ class CheckersApp {
      * Handle incoming computer vision data
      */
     handleVisionData(visionData) {
+        console.log('[DEBUG] Received vision data:', JSON.stringify(visionData));
+        
         this.lastVisionData = visionData;
         this.cameraConnected = true;
         this.updateStatus('cameraIndicator', true);
@@ -150,6 +152,7 @@ class CheckersApp {
         // Update vision status
         const hasMarker = visionData.marker !== null;
         this.updateStatus('visionIndicator', hasMarker);
+        console.log('[DEBUG] Has marker:', hasMarker);
         
         // Update vision info display
         this.updateVisionInfo(visionData);
@@ -169,12 +172,19 @@ class CheckersApp {
                 visionData.camera_dimension.y
             );
             
+            console.log('[DEBUG] Board position calculated:', {
+                camera: { x: visionData.marker.x, y: visionData.marker.y },
+                board: { x: boardPos.pixel.x, y: boardPos.pixel.y },
+                confidence: visionData.marker.confidence
+            });
+            
             this.renderer.updateVisionMarker({
                 x: boardPos.pixel.x,
                 y: boardPos.pixel.y,
                 confidence: visionData.marker.confidence
             });
         } else {
+            console.log('[DEBUG] Clearing vision marker');
             this.renderer.clearVisionMarker();
         }
         
