@@ -30,21 +30,29 @@ class InteractionManager {
     }
     
     /**
-     * Main update method called with vision data
+     * Main update method called with enhanced vision data
      */
     updateVisionInput(visionData) {
         if (!visionData) return;
         
         const timestamp = visionData.timestamp || Date.now();
         
-        if (!visionData.marker) {
+        // Enhanced marker validation - require high confidence detection
+        if (!visionData.marker || visionData.marker.confidence < 0.75) {
+            this.handleMarkerLost();
+            return;
+        }
+        
+        // Additional validation for confirmed detection state
+        if (visionData.marker.detection_state === 'SEARCHING') {
+            this.log('Marker detection state is SEARCHING - waiting for confirmation');
             this.handleMarkerLost();
             return;
         }
         
         // Convert camera coordinates to board coordinates
         const boardPos = this.coordinateMapper.cameraToBoard(
-            visionData.marker.x, 
+            visionData.marker.x,
             visionData.marker.y,
             visionData.camera_dimension.x,
             visionData.camera_dimension.y
@@ -53,14 +61,47 @@ class InteractionManager {
         // Update position history
         this.updatePositionHistory(boardPos, timestamp);
         
-        // Handle gesture states
+        // Enhanced gesture state handling with quality validation
         const gestureState = visionData.gesture.state;
         const isStable = visionData.marker.stable || false;
+        const isHighQuality = this.validateMarkerQuality(visionData);
         
-        // Process interaction based on current state
-        this.processInteraction(boardPos, gestureState, isStable, timestamp);
+        // Only process interaction with high-quality detections
+        if (isHighQuality) {
+            this.processInteraction(boardPos, gestureState, isStable, timestamp);
+        } else {
+            this.log('Marker quality insufficient for interaction');
+        }
         
         this.lastPosition = boardPos;
+    }
+    
+    /**
+     * Validate marker quality for reliable interaction
+     */
+    validateMarkerQuality(visionData) {
+        if (!visionData.quality_metrics) return true; // Fallback if no metrics
+        
+        const metrics = visionData.quality_metrics;
+        
+        // Minimum quality thresholds for interaction
+        const minGeometric = 0.7;
+        const minColor = 0.6;
+        const minUniformity = 0.6;
+        const minTemporal = 0.5;
+        
+        const qualityOk = (
+            metrics.geometric_score >= minGeometric &&
+            metrics.color_score >= minColor &&
+            metrics.uniformity_score >= minUniformity &&
+            metrics.temporal_score >= minTemporal
+        );
+        
+        if (!qualityOk) {
+            this.log(`Quality check failed: G:${(metrics.geometric_score*100).toFixed(0)} C:${(metrics.color_score*100).toFixed(0)} U:${(metrics.uniformity_score*100).toFixed(0)} T:${(metrics.temporal_score*100).toFixed(0)}`);
+        }
+        
+        return qualityOk;
     }
     
     /**
@@ -108,9 +149,14 @@ class InteractionManager {
             return;
         }
         
-        if (gestureState === 'SELECT' || 
-            (gestureState === 'HOVER' && isStable && this.getStateDuration(timestamp) > this.dwellThreshold)) {
-            
+        // Enhanced selection criteria - require stable marker with sufficient dwell time
+        const dwellTime = this.getStateDuration(timestamp);
+        const isReadyForSelection = (
+            (gestureState === 'SELECT') ||
+            (gestureState === 'HOVER' && isStable && dwellTime > this.dwellThreshold)
+        );
+        
+        if (isReadyForSelection) {
             const {x: gridX, y: gridY} = boardPos.grid;
             
             if (this.coordinateMapper.isDarkSquare(gridX, gridY)) {
@@ -119,14 +165,23 @@ class InteractionManager {
                 if (piece && piece.includes(this.game.currentPlayer)) {
                     this.setState('SELECTING', timestamp);
                     this.selectPiece(gridX, gridY);
+                    this.log(`Selected piece at (${gridX}, ${gridY}) after ${(dwellTime/1000).toFixed(1)}s dwell`);
                 } else {
                     // Clicked on empty square or opponent piece
                     this.showInvalidSelection(gridX, gridY);
+                    this.log(`Invalid selection at (${gridX}, ${gridY}) - ${piece ? 'opponent piece' : 'empty square'}`);
                 }
+            } else {
+                this.log(`Selection ignored - not on dark square (${gridX}, ${gridY})`);
             }
         } else if (gestureState === 'NONE') {
             this.setState('IDLE', timestamp);
             this.clearHover();
+        }
+        
+        // Debug logging for selection process
+        if (this.debugMode && dwellTime > 500) {
+            this.log(`Hovering: dwellTime=${(dwellTime/1000).toFixed(1)}s, stable=${isStable}, gesture=${gestureState}`);
         }
     }
     
@@ -158,14 +213,21 @@ class InteractionManager {
     handleDraggingState(boardPos, gestureState, isStable, timestamp) {
         this.updateDrag(boardPos);
         
+        // Enhanced drag handling with stability requirements
         if (gestureState === 'HOVER' || gestureState === 'SELECT') {
-            // Potential drop position
-            if (isStable && this.getStateDuration(timestamp) > 300) {
+            const dragTime = this.getStateDuration(timestamp);
+            
+            // Require stability for a reasonable time before allowing drop
+            if (isStable && dragTime > 300) {
                 this.setState('RELEASING', timestamp);
                 this.attemptMove(boardPos);
+                this.log(`Attempting drop after ${(dragTime/1000).toFixed(1)}s drag`);
+            } else if (this.debugMode) {
+                this.log(`Dragging: stable=${isStable}, dragTime=${(dragTime/1000).toFixed(1)}s`);
             }
         } else if (gestureState === 'NONE') {
             // Lost marker during drag
+            this.log('Lost marker during drag - canceling');
             this.setState('IDLE', timestamp);
             this.cancelDrag();
         }
@@ -377,20 +439,32 @@ class InteractionManager {
     }
     
     /**
-     * Handle marker lost
+     * Handle marker lost with enhanced recovery
      */
     handleMarkerLost() {
         if (this.state !== 'IDLE') {
-            this.log('Marker lost');
+            this.log(`Marker lost while in state: ${this.state}`);
             
-            // Give a brief grace period before canceling
-            setTimeout(() => {
+            // Different grace periods based on current state
+            let gracePeriod = 200; // Default
+            if (this.state === 'SELECTING') gracePeriod = 500; // Longer for selections
+            if (this.state === 'DRAGGING') gracePeriod = 300; // Medium for drags
+            
+            // Clear any existing timeout
+            if (this.markerLostTimeout) {
+                clearTimeout(this.markerLostTimeout);
+            }
+            
+            // Set new timeout with appropriate grace period
+            this.markerLostTimeout = setTimeout(() => {
                 if (this.state !== 'IDLE') {
+                    this.log(`Grace period expired - resetting to IDLE from ${this.state}`);
                     this.setState('IDLE');
                     this.clearHover();
                     this.clearSelection();
                 }
-            }, 200);
+                this.markerLostTimeout = null;
+            }, gracePeriod);
         }
     }
     
@@ -468,6 +542,14 @@ class InteractionManager {
         this.clearSelection();
         this.positionHistory = [];
         this.lastPosition = null;
+        
+        // Clear any pending timeouts
+        if (this.markerLostTimeout) {
+            clearTimeout(this.markerLostTimeout);
+            this.markerLostTimeout = null;
+        }
+        
+        this.log('Interaction manager reset');
     }
     
     /**

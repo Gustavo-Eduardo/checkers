@@ -130,10 +130,10 @@ class CheckersApp {
     }
     
     /**
-     * Handle incoming computer vision data
+     * Handle incoming computer vision data with enhanced detection format
      */
     handleVisionData(visionData) {
-        console.log('[DEBUG] Received vision data:', JSON.stringify(visionData));
+        console.log('[DEBUG] Received enhanced vision data:', JSON.stringify(visionData));
         
         this.lastVisionData = visionData;
         this.cameraConnected = true;
@@ -149,12 +149,20 @@ class CheckersApp {
             this.updateStatus('visionIndicator', false);
         }, 2000);
         
-        // Update vision status
+        // Update vision status with enhanced detection state
         const hasMarker = visionData.marker !== null;
-        this.updateStatus('visionIndicator', hasMarker);
-        console.log('[DEBUG] Has marker:', hasMarker);
+        const hasHighQualityMarker = hasMarker && visionData.marker.confidence >= 0.75;
+        this.updateStatus('visionIndicator', hasHighQualityMarker);
         
-        // Update vision info display
+        console.log('[DEBUG] Enhanced detection status:', {
+            hasMarker: hasMarker,
+            confidence: hasMarker ? visionData.marker.confidence : 0,
+            detectionState: hasMarker ? visionData.marker.detection_state : 'NONE',
+            qualityMetrics: visionData.quality_metrics,
+            debugInfo: visionData.debug_info
+        });
+        
+        // Update vision info display with enhanced data
         this.updateVisionInfo(visionData);
         
         // Handle calibration mode
@@ -163,7 +171,7 @@ class CheckersApp {
             return;
         }
         
-        // Update vision marker in renderer
+        // Update vision marker in renderer with enhanced data
         if (hasMarker) {
             const boardPos = this.coordinateMapper.cameraToBoard(
                 visionData.marker.x,
@@ -172,42 +180,56 @@ class CheckersApp {
                 visionData.camera_dimension.y
             );
             
-            console.log('[DEBUG] Board position calculated:', {
+            console.log('[DEBUG] Enhanced board position:', {
                 camera: { x: visionData.marker.x, y: visionData.marker.y },
                 board: { x: boardPos.pixel.x, y: boardPos.pixel.y },
-                confidence: visionData.marker.confidence
+                confidence: visionData.marker.confidence,
+                stable: visionData.marker.stable,
+                detectionState: visionData.marker.detection_state
             });
             
+            // Pass enhanced marker data to renderer
             this.renderer.updateVisionMarker({
                 x: boardPos.pixel.x,
                 y: boardPos.pixel.y,
-                confidence: visionData.marker.confidence
+                confidence: visionData.marker.confidence,
+                stable: visionData.marker.stable,
+                detectionState: visionData.marker.detection_state,
+                qualityMetrics: visionData.quality_metrics
             });
         } else {
-            console.log('[DEBUG] Clearing vision marker');
+            console.log('[DEBUG] No marker detected - candidates:', visionData.debug_info?.candidates_found || 0);
             this.renderer.clearVisionMarker();
         }
         
-        // Process interaction if game is active
+        // Process interaction if game is active and marker quality is sufficient
         if (this.game && !this.game.isGameOver()) {
             this.interactionManager.updateVisionInput(visionData);
         }
     }
     
     /**
-     * Handle calibration data
+     * Handle calibration data with enhanced detection validation
      */
     handleCalibrationData(visionData) {
         if (!visionData.marker) return;
         
-        // Auto-advance calibration when marker is stable
-        if (visionData.marker.stable && visionData.gesture.state === 'SELECT') {
+        // Require high confidence for calibration points
+        if (visionData.marker.confidence < 0.85) {
+            console.log('[DEBUG] Calibration waiting for higher confidence:', visionData.marker.confidence);
+            return;
+        }
+        
+        // Auto-advance calibration when marker is stable with high confidence
+        if (visionData.marker.stable &&
+            visionData.marker.detection_state === 'CONFIRMED' &&
+            visionData.gesture.state === 'SELECT') {
             this.nextCalibrationStep();
         }
     }
     
     /**
-     * Update vision information display
+     * Update vision information display with enhanced detection metrics
      */
     updateVisionInfo(visionData) {
         if (!this.debugMode) {
@@ -218,13 +240,89 @@ class CheckersApp {
         this.elements.visionInfo.classList.remove('hidden');
         
         if (visionData.marker) {
-            this.elements.markerStatus.textContent = 'Detected';
+            // Basic marker info
+            this.elements.markerStatus.textContent = `${visionData.marker.detection_state} (${visionData.marker.stable ? 'Stable' : 'Moving'})`;
             this.elements.confidenceValue.textContent = `${(visionData.marker.confidence * 100).toFixed(1)}%`;
             this.elements.markerPosition.textContent = `(${visionData.marker.x}, ${visionData.marker.y})`;
+            
+            // Enhanced quality metrics display
+            if (visionData.quality_metrics) {
+                const metrics = visionData.quality_metrics;
+                let detailsText = `Geometric: ${(metrics.geometric_score * 100).toFixed(1)}% | `;
+                detailsText += `Color: ${(metrics.color_score * 100).toFixed(1)}% | `;
+                detailsText += `Uniformity: ${(metrics.uniformity_score * 100).toFixed(1)}% | `;
+                detailsText += `Temporal: ${(metrics.temporal_score * 100).toFixed(1)}%\n`;
+                detailsText += `Area: ${metrics.area.toFixed(0)}px | `;
+                detailsText += `Circularity: ${(metrics.circularity * 100).toFixed(1)}% | `;
+                detailsText += `Convexity: ${(metrics.convexity * 100).toFixed(1)}%`;
+                
+                // Add or update quality details element
+                let qualityElement = document.getElementById('qualityDetails');
+                if (!qualityElement) {
+                    qualityElement = document.createElement('div');
+                    qualityElement.id = 'qualityDetails';
+                    qualityElement.style.cssText = `
+                        font-family: monospace;
+                        font-size: 10px;
+                        color: #ccc;
+                        margin-top: 5px;
+                        white-space: pre-line;
+                        line-height: 1.2;
+                    `;
+                    this.elements.visionInfo.appendChild(qualityElement);
+                }
+                qualityElement.textContent = detailsText;
+            }
+            
+            // Debug info display
+            if (visionData.debug_info) {
+                const debugInfo = visionData.debug_info;
+                let debugText = `Pipeline: ${debugInfo.candidates_found} → ${debugInfo.passed_geometry} → ${debugInfo.passed_uniformity}`;
+                
+                let debugElement = document.getElementById('debugDetails');
+                if (!debugElement) {
+                    debugElement = document.createElement('div');
+                    debugElement.id = 'debugDetails';
+                    debugElement.style.cssText = `
+                        font-family: monospace;
+                        font-size: 10px;
+                        color: #999;
+                        margin-top: 5px;
+                    `;
+                    this.elements.visionInfo.appendChild(debugElement);
+                }
+                debugElement.textContent = debugText;
+            }
         } else {
             this.elements.markerStatus.textContent = 'Not Detected';
             this.elements.confidenceValue.textContent = '0%';
             this.elements.markerPosition.textContent = '-';
+            
+            // Show pipeline debug info even when no marker
+            if (visionData.debug_info) {
+                const debugInfo = visionData.debug_info;
+                let debugText = `Pipeline: ${debugInfo.candidates_found} → ${debugInfo.passed_geometry} → ${debugInfo.passed_uniformity}`;
+                
+                let debugElement = document.getElementById('debugDetails');
+                if (!debugElement) {
+                    debugElement = document.createElement('div');
+                    debugElement.id = 'debugDetails';
+                    debugElement.style.cssText = `
+                        font-family: monospace;
+                        font-size: 10px;
+                        color: #999;
+                        margin-top: 5px;
+                    `;
+                    this.elements.visionInfo.appendChild(debugElement);
+                }
+                debugElement.textContent = debugText;
+            }
+            
+            // Clear quality details
+            const qualityElement = document.getElementById('qualityDetails');
+            if (qualityElement) {
+                qualityElement.textContent = '';
+            }
         }
         
         this.elements.gestureState.textContent = visionData.gesture.state;

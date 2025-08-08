@@ -376,28 +376,49 @@ class CanvasRenderer {
     }
     
     /**
-     * Draw computer vision marker
+     * Draw enhanced computer vision marker with quality indicators
      */
     drawVisionMarker() {
         if (!this.visionMarker) return;
         
-        const {x, y, confidence} = this.visionMarker;
-        const radius = 8 + confidence * 12; // Size based on confidence
+        const {x, y, confidence, stable, detectionState, qualityMetrics} = this.visionMarker;
+        const baseRadius = 8;
+        const radius = baseRadius + confidence * 12; // Size based on confidence
         
-        // Draw marker with pulsing effect
+        // Color based on detection state and stability
+        let markerColor = this.colors.visionMarker;
+        if (detectionState === 'CONFIRMED' && stable) {
+            markerColor = 'rgba(0, 255, 0, 0.8)'; // Green for confirmed stable
+        } else if (detectionState === 'TRACKING') {
+            markerColor = 'rgba(0, 150, 255, 0.8)'; // Blue for tracking
+        } else {
+            markerColor = 'rgba(255, 100, 0, 0.8)'; // Orange for searching
+        }
+        
+        // Draw marker with pulsing effect - faster pulse for unstable
         const time = Date.now() / 1000;
-        const pulse = 0.7 + 0.3 * Math.sin(time * 6);
+        const pulseSpeed = stable ? 4 : 8;
+        const pulse = 0.7 + 0.3 * Math.sin(time * pulseSpeed);
         
-        this.ctx.fillStyle = this.colors.visionMarker;
+        // Main marker circle
+        this.ctx.fillStyle = markerColor;
         this.ctx.globalAlpha = pulse * confidence;
-        
         this.ctx.beginPath();
         this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
         this.ctx.fill();
         
+        // Confidence ring - thickness based on confidence
+        this.ctx.strokeStyle = markerColor;
+        this.ctx.lineWidth = 1 + confidence * 3;
+        this.ctx.globalAlpha = confidence;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, radius + 3, 0, 2 * Math.PI);
+        this.ctx.stroke();
+        
         // Draw crosshair
-        this.ctx.strokeStyle = this.colors.visionMarker;
+        this.ctx.strokeStyle = markerColor;
         this.ctx.lineWidth = 2;
+        this.ctx.globalAlpha = 0.8;
         this.ctx.beginPath();
         this.ctx.moveTo(x - radius - 5, y);
         this.ctx.lineTo(x + radius + 5, y);
@@ -405,7 +426,47 @@ class CanvasRenderer {
         this.ctx.lineTo(x, y + radius + 5);
         this.ctx.stroke();
         
+        // Draw quality indicators if in debug mode
+        if (this.debugMode && qualityMetrics) {
+            this.drawQualityIndicators(x, y, radius, qualityMetrics);
+        }
+        
         this.ctx.globalAlpha = 1.0;
+    }
+    
+    /**
+     * Draw quality metric indicators around the marker
+     */
+    drawQualityIndicators(centerX, centerY, baseRadius, metrics) {
+        const indicatorRadius = baseRadius + 15;
+        const scores = [
+            {label: 'G', value: metrics.geometric_score, angle: 0},
+            {label: 'C', value: metrics.color_score, angle: Math.PI / 2},
+            {label: 'U', value: metrics.uniformity_score, angle: Math.PI},
+            {label: 'T', value: metrics.temporal_score, angle: 3 * Math.PI / 2}
+        ];
+        
+        scores.forEach(score => {
+            const x = centerX + Math.cos(score.angle) * indicatorRadius;
+            const y = centerY + Math.sin(score.angle) * indicatorRadius;
+            
+            // Color based on score quality
+            let color = 'rgba(255, 0, 0, 0.7)'; // Red for poor
+            if (score.value > 0.8) color = 'rgba(0, 255, 0, 0.7)'; // Green for excellent
+            else if (score.value > 0.6) color = 'rgba(255, 255, 0, 0.7)'; // Yellow for good
+            
+            // Draw small circle with score
+            this.ctx.fillStyle = color;
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, 6, 0, 2 * Math.PI);
+            this.ctx.fill();
+            
+            // Draw label
+            this.ctx.fillStyle = 'white';
+            this.ctx.font = '8px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(score.label, x, y + 2);
+        });
     }
     
     /**
@@ -477,25 +538,40 @@ class CanvasRenderer {
     }
     
     /**
-     * Draw debug information
+     * Draw enhanced debug information with quality metrics
      */
     drawDebugInfo() {
         const x = 10;
-        let y = this.canvas.height - 80;
+        let y = this.canvas.height - 120;
         
-        this.ctx.font = '12px monospace';
+        this.ctx.font = '11px monospace';
         this.ctx.textAlign = 'left';
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         
+        // Performance info
         this.ctx.fillText(`FPS: ${this.fps.toFixed(1)}`, x, y);
-        y += 15;
+        y += 13;
         this.ctx.fillText(`Animations: ${this.animations.length}`, x, y);
-        y += 15;
+        y += 13;
         
+        // Enhanced vision marker info
         if (this.visionMarker) {
-            this.ctx.fillText(`Vision: (${this.visionMarker.x.toFixed(0)}, ${this.visionMarker.y.toFixed(0)})`, x, y);
-            y += 15;
+            this.ctx.fillText(`Position: (${this.visionMarker.x.toFixed(0)}, ${this.visionMarker.y.toFixed(0)})`, x, y);
+            y += 13;
             this.ctx.fillText(`Confidence: ${(this.visionMarker.confidence * 100).toFixed(1)}%`, x, y);
+            y += 13;
+            this.ctx.fillText(`State: ${this.visionMarker.detectionState || 'UNKNOWN'} ${this.visionMarker.stable ? '(Stable)' : '(Moving)'}`, x, y);
+            y += 13;
+            
+            // Quality metrics if available
+            if (this.visionMarker.qualityMetrics) {
+                const m = this.visionMarker.qualityMetrics;
+                this.ctx.fillText(`Quality: G:${(m.geometric_score*100).toFixed(0)} C:${(m.color_score*100).toFixed(0)} U:${(m.uniformity_score*100).toFixed(0)} T:${(m.temporal_score*100).toFixed(0)}`, x, y);
+                y += 13;
+                this.ctx.fillText(`Metrics: Area:${m.area.toFixed(0)} Circ:${(m.circularity*100).toFixed(0)}% Conv:${(m.convexity*100).toFixed(0)}%`, x, y);
+            }
+        } else {
+            this.ctx.fillText(`Vision: No marker detected`, x, y);
         }
     }
     
@@ -578,7 +654,13 @@ class CanvasRenderer {
     }
     
     updateVisionMarker(marker) {
-        console.log('[DEBUG] Canvas renderer: Updating vision marker to:', marker);
+        console.log('[DEBUG] Canvas renderer: Updating enhanced vision marker:', {
+            position: {x: marker.x, y: marker.y},
+            confidence: marker.confidence,
+            stable: marker.stable,
+            detectionState: marker.detectionState,
+            hasQualityMetrics: !!marker.qualityMetrics
+        });
         this.visionMarker = marker;
     }
     

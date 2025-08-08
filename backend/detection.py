@@ -5,8 +5,8 @@ import json
 import time
 import math
 from collections import deque
-from dataclasses import dataclass
-from typing import Optional, Tuple, List
+from dataclasses import dataclass, asdict
+from typing import Optional, Tuple, List, Dict, Any
 
 @dataclass
 class MarkerPosition:
@@ -14,13 +14,310 @@ class MarkerPosition:
     y: int
     confidence: float
     timestamp: float
+    area: float = 0.0
+    circularity: float = 0.0
+    convexity: float = 0.0
     
+@dataclass
+class QualityMetrics:
+    geometric_score: float
+    color_score: float
+    uniformity_score: float
+    temporal_score: float
+    area: float
+    circularity: float
+    convexity: float
+
+@dataclass
+class DetectionDebugInfo:
+    candidates_found: int
+    passed_geometry: int
+    passed_uniformity: int
+    final_confidence_factors: List[float]
+
 @dataclass
 class GestureState:
     state: str  # 'NONE', 'HOVER', 'SELECT', 'DRAG'
     position: Optional[MarkerPosition]
     duration: float
     stability_score: float
+
+class AdaptiveColorDetector:
+    def __init__(self):
+        # Much more restrictive HSV ranges for markers vs clothing
+        self.marker_red_ranges = [
+            ([0, 120, 120], [10, 255, 255]),    # Primary red - higher saturation
+            ([160, 120, 120], [179, 255, 255])  # Wrap-around red
+        ]
+        # Clothing typically has saturation 50-100, markers 120+
+        
+    def find_red_candidates(self, frame) -> List[np.ndarray]:
+        """Find potential red marker candidates with strict color filtering"""
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        
+        # Create mask for both red ranges
+        mask1 = cv2.inRange(hsv, np.array(self.marker_red_ranges[0][0]), 
+                           np.array(self.marker_red_ranges[0][1]))
+        mask2 = cv2.inRange(hsv, np.array(self.marker_red_ranges[1][0]), 
+                           np.array(self.marker_red_ranges[1][1]))
+        mask = cv2.bitwise_or(mask1, mask2)
+        
+        # Enhanced morphological operations for small circular objects
+        kernel = np.ones((3, 3), np.uint8)  # Smaller kernel for small markers
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        return contours
+    
+    def calculate_color_score(self, frame, contour) -> float:
+        """Calculate color quality score for the contour region"""
+        # Create mask for the contour
+        mask = np.zeros(frame.shape[:2], np.uint8)
+        cv2.fillPoly(mask, [contour], 255)
+        
+        # Get HSV values in the region
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        region_pixels = hsv[mask > 0]
+        
+        if len(region_pixels) < 5:
+            return 0.0
+        
+        # Check hue distribution - should be in red ranges
+        hue_values = region_pixels[:, 0]
+        red_pixels = np.sum((hue_values <= 10) | (hue_values >= 160))
+        hue_score = red_pixels / len(hue_values)
+        
+        # Check saturation - should be high for markers
+        saturation_mean = np.mean(region_pixels[:, 1])
+        saturation_score = min(1.0, saturation_mean / 200.0)  # Normalize to 0-1
+        
+        # Check value (brightness) consistency
+        value_std = np.std(region_pixels[:, 2])
+        brightness_score = max(0.0, 1.0 - value_std / 50.0)
+        
+        # Combined color score
+        return (hue_score * 0.4 + saturation_score * 0.4 + brightness_score * 0.2)
+
+class MarkerGeometryValidator:
+    def __init__(self):
+        # Expected marker properties for 1-2cm diameter at various distances
+        self.min_area = 50      # Very close camera (30cm distance)
+        self.max_area = 800     # Far camera (100cm distance)
+        self.min_circularity = 0.75  # Much stricter than before
+        self.min_convexity = 0.9     # Markers are convex, clothing folds aren't
+        self.aspect_ratio_range = (0.8, 1.2)  # Nearly circular
+        self.min_compactness = 0.7   # Area vs bounding box ratio
+        
+    def is_valid_marker(self, contour) -> Tuple[bool, Dict[str, float]]:
+        """Validate contour geometry and return metrics"""
+        area = cv2.contourArea(contour)
+        metrics = {'area': area}
+        
+        # Size constraint check
+        if not (self.min_area <= area <= self.max_area):
+            return False, metrics
+        
+        # Perimeter check for circularity calculation
+        perimeter = cv2.arcLength(contour, True)
+        if perimeter == 0:
+            return False, metrics
+            
+        # Circularity check - 4*pi*area/perimeter^2
+        circularity = 4 * math.pi * area / (perimeter * perimeter)
+        metrics['circularity'] = circularity
+        if circularity < self.min_circularity:
+            return False, metrics
+            
+        # Convexity check - markers are convex, clothing folds aren't
+        hull = cv2.convexHull(contour)
+        hull_area = cv2.contourArea(hull)
+        convexity = area / hull_area if hull_area > 0 else 0
+        metrics['convexity'] = convexity
+        if convexity < self.min_convexity:
+            return False, metrics
+            
+        # Aspect ratio check
+        (x, y, w, h) = cv2.boundingRect(contour)
+        aspect_ratio = w / h if h > 0 else 0
+        metrics['aspect_ratio'] = aspect_ratio
+        if not (self.aspect_ratio_range[0] <= aspect_ratio <= self.aspect_ratio_range[1]):
+            return False, metrics
+            
+        # Compactness check - area vs bounding box
+        compactness = area / (w * h) if (w * h) > 0 else 0
+        metrics['compactness'] = compactness
+        if compactness < self.min_compactness:
+            return False, metrics
+        
+        return True, metrics
+    
+    def calculate_geometric_score(self, metrics: Dict[str, float]) -> float:
+        """Calculate normalized geometric quality score"""
+        # Normalize each metric to 0-1 scale
+        circularity_score = min(1.0, metrics['circularity'] / 1.0)
+        convexity_score = metrics['convexity']
+        
+        # Size score - prefer medium sizes (optimal detection distance)
+        area = metrics['area']
+        optimal_area = 300  # Sweet spot for detection
+        size_diff = abs(area - optimal_area) / optimal_area
+        size_score = max(0.0, 1.0 - size_diff)
+        
+        # Aspect ratio score - closer to 1.0 is better
+        aspect_score = 1.0 - abs(1.0 - metrics['aspect_ratio'])
+        
+        # Compactness score
+        compactness_score = metrics['compactness']
+        
+        # Weighted combination
+        return (circularity_score * 0.3 + convexity_score * 0.25 + 
+                size_score * 0.2 + aspect_score * 0.15 + compactness_score * 0.1)
+
+class ColorUniformityAnalyzer:
+    def __init__(self):
+        self.max_color_variance = 400    # Low variance for uniform markers
+        self.max_brightness_range = 40   # Consistent brightness
+        self.min_saturation_consistency = 0.85  # Consistent saturation
+        
+    def has_uniform_color(self, frame, contour) -> Tuple[bool, float]:
+        """Check if contour region has uniform color like a marker"""
+        # Create mask for the contour
+        mask = np.zeros(frame.shape[:2], np.uint8)
+        cv2.fillPoly(mask, [contour], 255)
+        
+        # Get pixels inside the contour
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        region_pixels = hsv[mask > 0]
+        
+        if len(region_pixels) < 10:
+            return False, 0.0
+            
+        # Color variance check - markers are uniform, clothing isn't
+        h_var = np.var(region_pixels[:, 0])
+        s_var = np.var(region_pixels[:, 1])  
+        v_var = np.var(region_pixels[:, 2])
+        total_variance = h_var + s_var + v_var
+        
+        variance_score = max(0.0, 1.0 - total_variance / self.max_color_variance)
+        
+        # Brightness consistency check
+        v_range = np.max(region_pixels[:, 2]) - np.min(region_pixels[:, 2])
+        brightness_score = max(0.0, 1.0 - v_range / self.max_brightness_range)
+        
+        # Saturation consistency - markers have consistent high saturation
+        s_mean = np.mean(region_pixels[:, 1])
+        s_std = np.std(region_pixels[:, 1])
+        saturation_consistency = 1.0 - (s_std / s_mean) if s_mean > 0 else 0.0
+        
+        # Combined uniformity score
+        uniformity_score = (variance_score * 0.4 + brightness_score * 0.3 + 
+                          saturation_consistency * 0.3)
+        
+        is_uniform = (total_variance <= self.max_color_variance and 
+                     v_range <= self.max_brightness_range and
+                     saturation_consistency >= self.min_saturation_consistency)
+                     
+        return is_uniform, uniformity_score
+
+class TemporalConsistencyValidator:
+    def __init__(self):
+        self.position_history = deque(maxlen=10)
+        self.property_history = deque(maxlen=5)
+        self.max_position_jump = 30  # pixels - reasonable hand movement
+        self.max_size_change = 0.3   # 30% size change allowed
+        self.stability_threshold = 15  # pixels for stable position
+        
+    def validate_and_score(self, position: MarkerPosition) -> Tuple[MarkerPosition, float]:
+        """Validate temporal consistency and return updated position with score"""
+        temporal_score = 1.0
+        
+        # Position stability check
+        if len(self.position_history) >= 2:
+            last_pos = self.position_history[-1]
+            distance = math.sqrt((position.x - last_pos.x)**2 + 
+                               (position.y - last_pos.y)**2)
+                               
+            # Penalize sudden jumps
+            if distance > self.max_position_jump:
+                temporal_score *= 0.5
+                
+            # Reward stability
+            if distance < self.stability_threshold:
+                temporal_score *= 1.1
+                
+        # Property consistency check over recent history
+        if len(self.property_history) >= 3:
+            recent_areas = [p.area for p in list(self.property_history)[-3:]]
+            area_variance = np.var(recent_areas)
+            mean_area = np.mean(recent_areas)
+            
+            # Penalize inconsistent size
+            if area_variance > (mean_area * self.max_size_change)**2:
+                temporal_score *= 0.7
+                
+        # Store current position and properties
+        self.position_history.append(position)
+        self.property_history.append(position)
+        
+        # Calculate position stability for the position
+        position_stable = self.is_position_stable()
+        
+        return position, min(1.0, temporal_score), position_stable
+        
+    def is_position_stable(self) -> bool:
+        """Check if recent positions are stable"""
+        if len(self.position_history) < 5:
+            return False
+            
+        recent_positions = list(self.position_history)[-5:]
+        avg_x = sum(p.x for p in recent_positions) / 5
+        avg_y = sum(p.y for p in recent_positions) / 5
+        
+        # Check if all recent positions are within stability threshold
+        for pos in recent_positions:
+            distance = math.sqrt((pos.x - avg_x)**2 + (pos.y - avg_y)**2)
+            if distance > self.stability_threshold:
+                return False
+                
+        return True
+        
+    def reset(self):
+        """Reset temporal validation state"""
+        self.position_history.clear()
+        self.property_history.clear()
+
+class MarkerConfidenceScorer:
+    def __init__(self):
+        self.weights = {
+            'geometric': 0.30,    # Shape, size, circularity
+            'color': 0.25,        # Hue accuracy, saturation
+            'uniformity': 0.25,   # Color consistency, no texture  
+            'temporal': 0.20      # Position stability, consistency
+        }
+        self.min_component_threshold = 0.6  # All components must be reasonable
+        
+    def calculate_confidence(self, geometric_score: float, color_score: float, 
+                           uniformity_score: float, temporal_score: float) -> Tuple[float, List[float]]:
+        """Calculate overall confidence score with component validation"""
+        
+        components = [geometric_score, color_score, uniformity_score, temporal_score]
+        
+        # Ensure all components meet minimum threshold
+        if any(score < self.min_component_threshold for score in components):
+            return 0.0, components  # Fail if any component is too weak
+            
+        # Weighted final confidence
+        final_confidence = (
+            geometric_score * self.weights['geometric'] +
+            color_score * self.weights['color'] +  
+            uniformity_score * self.weights['uniformity'] +
+            temporal_score * self.weights['temporal']
+        )
+        
+        return min(1.0, final_confidence), components
 
 class GestureRecognizer:
     def __init__(self):
@@ -32,10 +329,10 @@ class GestureRecognizer:
         self.state_history = deque(maxlen=5)
         
     def update(self, position: Optional[MarkerPosition]) -> GestureState:
-        """Update gesture recognition state"""
+        """Update gesture recognition state with enhanced validation"""
         current_time = time.time()
         
-        if position is None:
+        if position is None or position.confidence < 0.75:  # Require high confidence
             self.current_state = 'NONE'
             self.dwell_start = None
             self.last_position = None
@@ -84,15 +381,22 @@ class GestureRecognizer:
 class EnhancedDetection:
     def __init__(self):
         self.cap = cv2.VideoCapture(0)
-        self.position_history = deque(maxlen=10)
+        
+        # Enhanced detection components
+        self.color_detector = AdaptiveColorDetector()
+        self.geometry_validator = MarkerGeometryValidator()  
+        self.uniformity_analyzer = ColorUniformityAnalyzer()
+        self.temporal_validator = TemporalConsistencyValidator()
+        self.confidence_scorer = MarkerConfidenceScorer()
         self.gesture_recognizer = GestureRecognizer()
+        
+        # Kalman filter for position smoothing
         self.kalman_filter = self.init_kalman_filter()
         self.kalman_initialized = False
         
         # Detection parameters
-        self.min_contour_area = 500
-        self.stability_threshold = 15  # pixels
-        self.confidence_threshold = 0.3
+        self.min_confidence_threshold = 0.75  # Much higher threshold
+        self.detection_state = "SEARCHING"  # SEARCHING, CONFIRMED, TRACKING
         
     def init_kalman_filter(self):
         """Initialize Kalman filter for position smoothing"""
@@ -107,66 +411,89 @@ class EnhancedDetection:
         kf.measurementNoiseCov = 0.1 * np.eye(2, dtype=np.float32)
         return kf
         
-    def detect_marker(self, frame) -> Optional[MarkerPosition]:
-        """Enhanced red marker detection with confidence scoring"""
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    def detect_marker(self, frame) -> Tuple[Optional[MarkerPosition], DetectionDebugInfo]:
+        """Enhanced multi-stage marker detection pipeline"""
+        debug_info = DetectionDebugInfo(0, 0, 0, [])
         
-        # Red color ranges (broader range for better detection)
-        lower_red1 = np.array([0, 50, 50])
-        upper_red1 = np.array([10, 255, 255])
-        lower_red2 = np.array([160, 50, 50])
-        upper_red2 = np.array([179, 255, 255])
+        # Stage 1: Adaptive color detection
+        candidates = self.color_detector.find_red_candidates(frame)
+        debug_info.candidates_found = len(candidates)
         
-        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-        mask = cv2.bitwise_or(mask1, mask2)
-        
-        # Enhanced morphological operations
-        kernel = np.ones((5,5), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        if not contours:
-            return None
+        if not candidates:
+            return None, debug_info
             
-        # Find best contour
-        largest_contour = max(contours, key=cv2.contourArea)
-        area = cv2.contourArea(largest_contour)
+        # Stage 2: Geometric validation  
+        valid_contours = []
+        geometric_metrics_list = []
         
-        if area < self.min_contour_area:
-            return None
+        for contour in candidates:
+            is_valid, metrics = self.geometry_validator.is_valid_marker(contour)
+            if is_valid:
+                valid_contours.append(contour)
+                geometric_metrics_list.append(metrics)
+                
+        debug_info.passed_geometry = len(valid_contours)
+        
+        if not valid_contours:
+            return None, debug_info
+                
+        # Stage 3: Color uniformity analysis
+        uniform_candidates = []
+        uniformity_scores = []
+        
+        for i, contour in enumerate(valid_contours):
+            is_uniform, uniformity_score = self.uniformity_analyzer.has_uniform_color(frame, contour)
+            if is_uniform:
+                uniform_candidates.append((contour, geometric_metrics_list[i], uniformity_score))
+                uniformity_scores.append(uniformity_score)
+                
+        debug_info.passed_uniformity = len(uniform_candidates)
+        
+        if not uniform_candidates:
+            return None, debug_info
             
-        # Calculate position and confidence
-        (x, y, w, h) = cv2.boundingRect(largest_contour)
+        # Stage 4: Select best candidate and calculate initial scores
+        best_candidate = max(uniform_candidates, key=lambda x: x[2])  # Best uniformity score
+        best_contour, best_metrics, best_uniformity = best_candidate
+        
+        # Extract position
+        (x, y, w, h) = cv2.boundingRect(best_contour)
         center_x = x + w // 2
         center_y = y + h // 2
         
-        # Enhanced confidence calculation
-        perimeter = cv2.arcLength(largest_contour, True)
-        if perimeter > 0:
-            circularity = 4 * math.pi * area / (perimeter * perimeter)
-        else:
-            circularity = 0
-            
-        # Aspect ratio confidence
-        aspect_ratio = w / h if h > 0 else 0
-        aspect_confidence = 1 - abs(1 - aspect_ratio) if aspect_ratio > 0 else 0
+        # Calculate component scores
+        geometric_score = self.geometry_validator.calculate_geometric_score(best_metrics)
+        color_score = self.color_detector.calculate_color_score(frame, best_contour)
+        uniformity_score = best_uniformity
         
-        # Size confidence (bigger is better, up to a point)
-        size_confidence = min(1.0, area / 2000)
-        
-        # Combined confidence
-        confidence = (circularity * 0.4 + aspect_confidence * 0.3 + size_confidence * 0.3)
-        confidence = max(0, min(1, confidence))
-        
-        return MarkerPosition(
-            x=center_x,
-            y=center_y,
-            confidence=confidence,
-            timestamp=time.time()
+        # Create initial position
+        position = MarkerPosition(
+            x=center_x, y=center_y, 
+            confidence=0.0, timestamp=time.time(),
+            area=best_metrics['area'],
+            circularity=best_metrics['circularity'],
+            convexity=best_metrics['convexity']
         )
+        
+        # Stage 5: Temporal validation and confidence scoring
+        position, temporal_score, is_stable = self.temporal_validator.validate_and_score(position)
+        
+        # Final confidence calculation
+        final_confidence, confidence_factors = self.confidence_scorer.calculate_confidence(
+            geometric_score, color_score, uniformity_score, temporal_score
+        )
+        
+        debug_info.final_confidence_factors = confidence_factors
+        position.confidence = final_confidence
+        
+        # Update detection state
+        if final_confidence >= self.min_confidence_threshold:
+            self.detection_state = "CONFIRMED" if self.detection_state == "SEARCHING" else "TRACKING"
+        else:
+            self.detection_state = "SEARCHING"
+            return None, debug_info
+            
+        return position, debug_info
         
     def smooth_position(self, position: MarkerPosition) -> MarkerPosition:
         """Apply Kalman filtering for smooth tracking"""
@@ -181,27 +508,21 @@ class EnhancedDetection:
         self.kalman_filter.correct(measurement)
         prediction = self.kalman_filter.predict()
         
-        return MarkerPosition(
+        # Create smoothed position
+        smoothed_position = MarkerPosition(
             x=int(prediction[0]),
             y=int(prediction[1]),
             confidence=position.confidence,
-            timestamp=position.timestamp
+            timestamp=position.timestamp,
+            area=position.area,
+            circularity=position.circularity,
+            convexity=position.convexity
         )
         
-    def is_position_stable(self, position: MarkerPosition) -> bool:
-        """Check if position is stable based on recent history"""
-        if len(self.position_history) < 5:
-            return False
-            
-        recent_positions = list(self.position_history)[-5:]
-        avg_x = sum(p.x for p in recent_positions) / 5
-        avg_y = sum(p.y for p in recent_positions) / 5
-        
-        distance = math.sqrt((position.x - avg_x)**2 + (position.y - avg_y)**2)
-        return distance < self.stability_threshold
+        return smoothed_position
         
     def run(self):
-        """Main detection loop"""
+        """Main detection loop with enhanced output"""
         while True:
             ret, frame = self.cap.read()
             if not ret:
@@ -209,63 +530,71 @@ class EnhancedDetection:
                 
             frame = cv2.flip(frame, 1)  # Mirror effect
             
-            # Detect marker
-            marker_pos = self.detect_marker(frame)
+            # Enhanced marker detection
+            marker_pos, debug_info = self.detect_marker(frame)
             
-            # DEBUG: Log detection details
+            # Smooth position if detected
             if marker_pos:
-                print(f"DEBUG: Raw detection - x:{marker_pos.x}, y:{marker_pos.y}, confidence:{marker_pos.confidence:.3f}, threshold:{self.confidence_threshold}", file=sys.stderr)
-            else:
-                print("DEBUG: No marker detected", file=sys.stderr)
-            
-            if marker_pos and marker_pos.confidence > self.confidence_threshold:
-                # Smooth position
                 smoothed_pos = self.smooth_position(marker_pos)
-                self.position_history.append(smoothed_pos)
-                
-                # Check stability
-                is_stable = self.is_position_stable(smoothed_pos)
+                is_stable = self.temporal_validator.is_position_stable()
                 
                 # Update gesture recognition
                 gesture_state = self.gesture_recognizer.update(smoothed_pos)
                 
-                # DEBUG: Log processing details
-                print(f"DEBUG: Smoothed pos - x:{smoothed_pos.x}, y:{smoothed_pos.y}, stable:{is_stable}, gesture:{gesture_state.state}", file=sys.stderr)
-                
-                # Send enhanced data to frontend
+                # Enhanced output with quality metrics
                 output_data = {
                     "camera_dimension": {"x": frame.shape[1], "y": frame.shape[0]},
                     "marker": {
                         "x": smoothed_pos.x,
                         "y": smoothed_pos.y,
                         "confidence": smoothed_pos.confidence,
-                        "stable": is_stable
+                        "stable": is_stable,
+                        "detection_state": self.detection_state
                     },
                     "gesture": {
                         "state": gesture_state.state,
                         "duration": gesture_state.duration,
                         "stability": gesture_state.stability_score
                     },
+                    "quality_metrics": {
+                        "geometric_score": debug_info.final_confidence_factors[0] if debug_info.final_confidence_factors else 0,
+                        "color_score": debug_info.final_confidence_factors[1] if debug_info.final_confidence_factors else 0,
+                        "uniformity_score": debug_info.final_confidence_factors[2] if debug_info.final_confidence_factors else 0,
+                        "temporal_score": debug_info.final_confidence_factors[3] if debug_info.final_confidence_factors else 0,
+                        "area": smoothed_pos.area,
+                        "circularity": smoothed_pos.circularity,
+                        "convexity": smoothed_pos.convexity
+                    },
+                    "debug_info": {
+                        "candidates_found": debug_info.candidates_found,
+                        "passed_geometry": debug_info.passed_geometry,
+                        "passed_uniformity": debug_info.passed_uniformity
+                    },
                     "timestamp": time.time()
                 }
                 
                 print(json.dumps(output_data))
                 sys.stdout.flush()
+                
             else:
-                # DEBUG: Log why no detection was sent
-                if marker_pos:
-                    print(f"DEBUG: Marker rejected - confidence {marker_pos.confidence:.3f} < threshold {self.confidence_threshold}", file=sys.stderr)
-                else:
-                    print("DEBUG: No marker found in frame", file=sys.stderr)
-                    
-                # Send no detection data
+                # Reset state when no detection
+                self.detection_state = "SEARCHING"
+                self.gesture_recognizer.update(None)
+                
+                # No detection output
                 no_detection = {
                     "camera_dimension": {"x": frame.shape[1], "y": frame.shape[0]},
                     "marker": None,
                     "gesture": {"state": "NONE", "duration": 0, "stability": 0},
+                    "quality_metrics": None,
+                    "debug_info": {
+                        "candidates_found": debug_info.candidates_found,
+                        "passed_geometry": debug_info.passed_geometry,
+                        "passed_uniformity": debug_info.passed_uniformity
+                    },
                     "timestamp": time.time()
                 }
-                self.gesture_recognizer.update(None)
+                
                 print(json.dumps(no_detection))
                 sys.stdout.flush()
                 
@@ -282,4 +611,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
