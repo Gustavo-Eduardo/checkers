@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vision Checkers</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <h1>Vision Checkers</h1>
+            </div>
+            <div class="game-status">
+                <span id="current-player">Red's Turn</span>
+                <span id="game-timer">00:00</span>
+            </div>
+            <div class="header-controls">
+                <button id="btn-settings" class="btn-icon" title="Settings">⚙️</button>
+                <button id="btn-help" class="btn-icon" title="Help">❓</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel -->
+            <aside class="left-panel">
+                <div class="camera-section">
+                    <div class="camera-header">
+                        <h3>Camera Input</h3>
+                        <button id="btn-toggle-camera" class="btn-small">Start Camera</button>
+                    </div>
+                    <div class="camera-container">
+                        <canvas id="camera-preview"></canvas>
+                        <div id="camera-status" class="camera-status">Camera Off</div>
+                    </div>
+                    <div class="gesture-info">
+                        <p>Current Gesture: <span id="current-gesture">None</span></p>
+                        <p>Confidence: <span id="gesture-confidence">0%</span></p>
+                    </div>
+                </div>
+                
+                <div class="controls-section">
+                    <h3>Game Controls</h3>
+                    <button id="btn-new-game" class="btn-primary">New Game</button>
+                    <button id="btn-reset" class="btn-secondary">Reset Board</button>
+                    <div class="game-mode">
+                        <label>
+                            <input type="radio" name="input-mode" value="vision" checked>
+                            Vision Control
+                        </label>
+                        <label>
+                            <input type="radio" name="input-mode" value="mouse">
+                            Mouse Control
+                        </label>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center Panel - Game Board -->
+            <section class="center-panel">
+                <div class="board-container">
+                    <canvas id="game-board"></canvas>
+                    <canvas id="input-overlay"></canvas>
+                </div>
+                <div class="board-controls">
+                    <button id="btn-undo" class="btn-small" disabled>Undo</button>
+                    <button id="btn-hint" class="btn-small">Hint</button>
+                    <button id="btn-rotate" class="btn-small">Rotate Board</button>
+                </div>
+            </section>
+
+            <!-- Right Panel -->
+            <aside class="right-panel">
+                <div class="score-panel">
+                    <h3>Score</h3>
+                    <div class="scores">
+                        <div class="player-score red-player">
+                            <span class="player-name">Red</span>
+                            <span class="piece-count" id="red-count">12</span>
+                            <span class="king-count" id="red-kings">0 Kings</span>
+                        </div>
+                        <div class="player-score black-player">
+                            <span class="player-name">Black</span>
+                            <span class="piece-count" id="black-count">12</span>
+                            <span class="king-count" id="black-kings">0 Kings</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="move-history">
+                    <h3>Move History</h3>
+                    <div id="move-list" class="move-list"></div>
+                </div>
+                
+                <div class="connection-status">
+                    <h3>Connection</h3>
+                    <p>Backend: <span id="backend-status" class="status-indicator">Disconnected</span></p>
+                    <p>WebSocket: <span id="ws-status" class="status-indicator">Disconnected</span></p>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <span id="fps-counter">FPS: 0</span>
+            <span id="processing-time">Processing: 0ms</span>
+            <span id="status-message">Ready</span>
+        </footer>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>How to Play</h2>
+            <div class="help-content">
+                <h3>Vision Controls:</h3>
+                <ul>
+                    <li>👉 Point to select a piece</li>
+                    <li>👉 Point again to move it</li>
+                    <li>✊ Make a fist to grab a piece</li>
+                    <li>✋ Open hand to release</li>
+                    <li>👋 Wave to hover over squares</li>
+                </ul>
+                <h3>Mouse Controls:</h3>
+                <ul>
+                    <li>Click to select a piece</li>
+                    <li>Click valid square to move</li>
+                    <li>Right-click to cancel selection</li>
+                </ul>
+                <h3>Game Rules:</h3>
+                <ul>
+                    <li>Move diagonally forward</li>
+                    <li>Jump over opponent pieces to capture</li>
+                    <li>Reach the opposite end to become a King</li>
+                    <li>Kings can move in any diagonal direction</li>
+                </ul>
+            </div>
+            <button class="btn-primary" onclick="closeHelp()">Close</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/services/WebSocketClient.js"></script>
+    <script src="js/game/Board.js"></script>
+    <script src="js/game/GameManager.js"></script>
+    <script src="js/game/InputVisualizer.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

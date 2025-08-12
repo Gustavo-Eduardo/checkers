@@ -1,0 +1,50 @@
+{
+  "name": "checkers-vision",
+  "version": "1.0.0",
+  "description": "Digital checkers game with computer vision input",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "dist": "electron-builder --publish=never",
+    "backend": "python backend/main.py"
+  },
+  "keywords": ["checkers", "game", "computer-vision", "electron"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^27.0.0",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.6.0"
+  },
+  "build": {
+    "appId": "com.checkers.vision",
+    "productName": "Vision Checkers",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "backend/**/*.py",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.games"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

@@ -1,0 +1,477 @@
+/* Animation definitions for the checkers game */
+
+/* Piece movement animations */
+@keyframes pieceMove {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pieceCapture {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3) rotate(180deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes piecePromotion {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    transform: scale(1.2);
+    filter: brightness(1.5) hue-rotate(60deg);
+  }
+  50% {
+    transform: scale(1.4) rotateY(180deg);
+    filter: brightness(2) hue-rotate(120deg);
+  }
+  75% {
+    transform: scale(1.2) rotateY(360deg);
+    filter: brightness(1.5) hue-rotate(60deg);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+/* Board square animations */
+@keyframes validMoveHighlight {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes selectionPulse {
+  0% {
+    border-color: rgba(251, 191, 36, 0.5);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+  }
+  50% {
+    border-color: rgba(251, 191, 36, 1);
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+  }
+  100% {
+    border-color: rgba(251, 191, 36, 0.5);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
+  }
+}
+
+@keyframes hoverGlow {
+  0% {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.3);
+  }
+  100% {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+}
+
+/* UI element animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-2px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(2px);
+  }
+}
+
+/* Button animations */
+@keyframes buttonPress {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes buttonHover {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  100% {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Camera and vision animations */
+@keyframes cameraFlash {
+  0% {
+    background-color: rgba(255, 255, 255, 0);
+  }
+  50% {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+  100% {
+    background-color: rgba(255, 255, 255, 0);
+  }
+}
+
+@keyframes gestureTrail {
+  0% {
+    opacity: 1;
+    width: 4px;
+  }
+  100% {
+    opacity: 0;
+    width: 0px;
+  }
+}
+
+@keyframes handCursor {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+}
+
+/* Status and connection animations */
+@keyframes statusBlink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes connectionPulse {
+  0% {
+    background-color: currentColor;
+    transform: scale(1);
+  }
+  50% {
+    background-color: transparent;
+    transform: scale(1.2);
+  }
+  100% {
+    background-color: currentColor;
+    transform: scale(1);
+  }
+}
+
+/* Notification animations */
+@keyframes notificationSlideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes notificationSlideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}
+
+/* Game over animations */
+@keyframes gameOverPulse {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    transform: scale(1.1);
+    filter: brightness(1.3);
+  }
+  50% {
+    transform: scale(1.2);
+    filter: brightness(1.6);
+  }
+  75% {
+    transform: scale(1.1);
+    filter: brightness(1.3);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes victoryRays {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0.5;
+  }
+  100% {
+    transform: rotate(360deg);
+    opacity: 0.8;
+  }
+}
+
+/* Loading animations */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dotPulse {
+  0%, 60%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(1.4);
+    opacity: 0.7;
+  }
+}
+
+/* Applied animation classes */
+.piece-move {
+  animation: pieceMove 0.3s ease-out;
+}
+
+.piece-capture {
+  animation: pieceCapture 0.5s ease-out forwards;
+}
+
+.piece-promotion {
+  animation: piecePromotion 1s ease-in-out;
+}
+
+.valid-move {
+  animation: validMoveHighlight 2s ease-in-out infinite;
+}
+
+.selected-square {
+  animation: selectionPulse 2s ease-in-out infinite;
+}
+
+.hover-square {
+  animation: hoverGlow 1.5s ease-in-out infinite;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.slide-in {
+  animation: slideIn 0.4s ease-out;
+}
+
+.bounce-in {
+  animation: bounceIn 0.5s ease-out;
+}
+
+.shake {
+  animation: shake 0.6s ease-in-out;
+}
+
+.button-press {
+  animation: buttonPress 0.1s ease-out;
+}
+
+.button-hover {
+  animation: buttonHover 0.2s ease-out forwards;
+}
+
+.camera-flash {
+  animation: cameraFlash 0.3s ease-out;
+}
+
+.gesture-trail {
+  animation: gestureTrail 2s linear forwards;
+}
+
+.hand-cursor {
+  animation: handCursor 1.5s ease-in-out infinite;
+}
+
+.status-blink {
+  animation: statusBlink 2s ease-in-out infinite;
+}
+
+.connection-pulse {
+  animation: connectionPulse 2s ease-in-out infinite;
+}
+
+.notification-slide-in {
+  animation: notificationSlideIn 0.3s ease-out;
+}
+
+.notification-slide-out {
+  animation: notificationSlideOut 0.3s ease-in forwards;
+}
+
+.game-over-pulse {
+  animation: gameOverPulse 2s ease-in-out infinite;
+}
+
+.victory-rays {
+  animation: victoryRays 3s linear infinite;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.dot-pulse {
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+/* Transition helpers */
+.smooth-transition {
+  transition: all 0.3s ease;
+}
+
+.fast-transition {
+  transition: all 0.15s ease;
+}
+
+.slow-transition {
+  transition: all 0.6s ease;
+}
+
+/* Hover effects */
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+/* Focus animations */
+.focus-pulse:focus {
+  animation: selectionPulse 2s ease-in-out infinite;
+}
+
+/* Media query for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .piece-move,
+  .piece-capture,
+  .piece-promotion,
+  .valid-move,
+  .selected-square,
+  .hover-square,
+  .fade-in,
+  .slide-in,
+  .bounce-in,
+  .shake,
+  .button-press,
+  .button-hover,
+  .camera-flash,
+  .gesture-trail,
+  .hand-cursor,
+  .status-blink,
+  .connection-pulse,
+  .notification-slide-in,
+  .notification-slide-out,
+  .game-over-pulse,
+  .victory-rays,
+  .spin,
+  .dot-pulse {
+    animation: none !important;
+  }
+  
+  .smooth-transition,
+  .fast-transition,
+  .slow-transition {
+    transition: none !important;
+  }
+  
+  .hover-lift:hover,
+  .hover-scale:hover {
+    transform: none !important;
+  }
+}
