@@ -19,6 +19,7 @@ class InputMapper:
         self.board_size = board_size
         self.selected_piece = None
         self.hover_position = None
+        self.click_position = None  # Track where hand was closed for release handling
         self.last_action_time = 0
         self.action_cooldown = 0.2  # Faster response for binary gestures
         self.hover_history = []  # Store recent hover positions for stability
@@ -32,76 +33,139 @@ class InputMapper:
         self.gesture_history = []  # Track recent gesture states
         self.gesture_history_size = 15  # Look at more frames for stability
         
+    def update_game_state(self, selected_piece_position: Optional[Tuple[int, int]]):
+        """Update internal state to match game state - critical for gesture flow"""
+        if self.selected_piece != selected_piece_position:
+            logger.info(f"InputMapper state sync: selected_piece {self.selected_piece} -> {selected_piece_position}")
+            self.selected_piece = selected_piece_position
+        
     def map_gesture_to_action(self, gesture, screen_dimensions: Tuple[int, int]) -> Optional[Dict]:
-        """Convert gesture to game action using binary closed/open hand detection"""
+        """Convert gesture to game action replicating exact mouse behavior"""
+        
+        logger.info(f"INPUT_MAPPER: Processing gesture - Type: {type(gesture).__name__}")
         
         try:
-            # Determine if hand is closed based on finger count
-            if hasattr(gesture, 'finger_count') and gesture.finger_count is not None:
-                # Ensure finger_count is a scalar value
+            # Check if using new SimpleHandGesture
+            if hasattr(gesture, 'is_open'):
+                # New simple binary detection
+                hand_closed = not gesture.is_open  # is_open=False means hand is closed (grabbing)
+                logger.info(f"INPUT_MAPPER: Simple binary gesture - "
+                          f"is_open={gesture.is_open}, hand_closed={hand_closed}")
+            elif hasattr(gesture, 'finger_count') and gesture.finger_count is not None:
+                # Legacy finger count detection
                 finger_count = gesture.finger_count
                 if hasattr(finger_count, 'item'):  # numpy scalar
                     finger_count = finger_count.item()
                 hand_closed = int(finger_count) == 0  # Only fully closed fist = closed, any fingers = open
-                logger.debug(f"Binary gesture: {finger_count} fingers -> {'closed' if hand_closed else 'open'}")
+                logger.info(f"INPUT_MAPPER: Legacy finger count - {finger_count} fingers -> {'closed' if hand_closed else 'open'}")
             else:
                 # Fallback to gesture type analysis
                 hand_closed = gesture.gesture_type == 'grab'
-                logger.debug(f"Fallback gesture: {gesture.gesture_type} -> {'closed' if hand_closed else 'open'}")
+                logger.info(f"INPUT_MAPPER: Fallback gesture type - {gesture.gesture_type} -> {'closed' if hand_closed else 'open'}")
         except Exception as e:
-            logger.error(f"Error determining hand state: {e}, gesture type: {getattr(gesture, 'gesture_type', 'unknown')}")
-            # Safe fallback
-            hand_closed = gesture.gesture_type == 'grab'
+            logger.error(f"INPUT_MAPPER: Error determining hand state: {e}")
+            # Safe fallback - assume open hand
+            hand_closed = False
         
         # Update hand state with stability checking
         hand_state_changed = self._update_hand_state(hand_closed)
         
         # Map hand position to board coordinates
+        logger.info(f"INPUT_MAPPER: Gesture position: {gesture.position}, Screen dimensions: {screen_dimensions}")
         board_pos = self._screen_to_board_coords(gesture.position, screen_dimensions)
         
-        # Debounce actions (except for hover)
+        logger.info(f"INPUT_MAPPER: State tracking - "
+                   f"current_closed={self.is_hand_closed}, "
+                   f"was_grabbing={self.was_grabbing}, "
+                   f"state_changed={hand_state_changed}, "
+                   f"board_pos={board_pos}, "
+                   f"selected_piece={self.selected_piece}")
+        
+        # EXACT MOUSE BEHAVIOR REPLICATION:
+        # 1. OPEN hand = mouse movement (hover)
+        # 2. OPEN→GRABBED = mouse click down (select piece) 
+        # 3. GRABBED hand = mouse drag (piece stays selected)
+        # 4. GRABBED→OPEN = mouse release (move piece or deselect)
+        
+        # Debounce major actions (selection/movement)
         current_time = time.time()
         if current_time - self.last_action_time < self.action_cooldown and hand_state_changed:
             return None
         
-        # Handle state transitions
+        # Handle state transitions (replicating mouse click behavior)
         if hand_state_changed:
             if self.is_hand_closed and not self.was_grabbing:
-                # Just closed hand - select piece
+                # OPEN→GRABBED: Equivalent to mouse click down
+                # This replicates handleMouseClick() logic exactly:
+                # If no piece selected, select piece at position
+                # If piece selected, this starts a potential move (handled on release)
                 if board_pos:
-                    self.selected_piece = board_pos
+                    logger.warning(f"INPUT_MAPPER: *** GRAB GESTURE DETECTED *** Hand closed at {board_pos}")
                     self.last_action_time = current_time
-                    logger.info(f"GRAB START: Selected piece at {board_pos}")
-                    return {
-                        'type': GameAction.SELECT_PIECE.value,
-                        'position': board_pos,
-                        'confidence': gesture.confidence
-                    }
+                    
+                    # Store click position for release handling
+                    self.click_position = board_pos
+                    
+                    # If no piece currently selected, select piece immediately 
+                    if not self.selected_piece:
+                        action = {
+                            'type': GameAction.SELECT_PIECE.value,
+                            'position': board_pos,
+                            'confidence': gesture.confidence
+                        }
+                        logger.warning(f"INPUT_MAPPER: *** GENERATING SELECT_PIECE ACTION *** {action}")
+                        return action
+                    # If piece is already selected, we're starting a move - handle on release
+                    else:
+                        logger.info(f"INPUT_MAPPER: Piece already selected {self.selected_piece}, waiting for release")
                     
             elif not self.is_hand_closed and self.was_grabbing:
-                # Just opened hand - complete move or cancel
-                if self.selected_piece and board_pos:
-                    logger.info(f"GRAB END: Moving piece from {self.selected_piece} to {board_pos}")
-                    action = {
-                        'type': GameAction.MOVE_PIECE.value,
-                        'from': self.selected_piece,
-                        'to': board_pos,
-                        'confidence': gesture.confidence
-                    }
-                    self.selected_piece = None
-                    self.last_action_time = current_time
-                    return action
-                elif self.selected_piece:
-                    # No valid target - cancel
-                    logger.info(f"GRAB END: Canceling selection (no valid target at {board_pos})")
-                    self.selected_piece = None
-                    self.last_action_time = current_time
-                    return {
-                        'type': GameAction.CANCEL.value,
-                        'confidence': gesture.confidence
-                    }
+                # GRABBED→OPEN: Equivalent to mouse release
+                # Replicate exact mouse click logic from Board.js handleMouseClick():
+                release_pos = board_pos or self.click_position  # Use click position if release outside board
+                
+                if not self.selected_piece:
+                    # No piece was selected - just select piece at release position
+                    if release_pos:
+                        logger.info(f"GESTURE SELECT: Selecting piece at {release_pos}")
+                        self.last_action_time = current_time
+                        return {
+                            'type': GameAction.SELECT_PIECE.value, 
+                            'position': release_pos,
+                            'confidence': gesture.confidence
+                        }
+                else:
+                    # Piece was already selected - handle move/reselect/deselect
+                    if release_pos:
+                        if release_pos == self.selected_piece:
+                            # Released on same piece - keep selected (like mouse)
+                            logger.info(f"GESTURE HOLD: Maintaining selection of {self.selected_piece}")
+                            return None
+                        else:
+                            # Released on different square - attempt move or reselect
+                            logger.info(f"GESTURE RELEASE: Move from {self.selected_piece} to {release_pos}")
+                            action = {
+                                'type': GameAction.MOVE_PIECE.value,
+                                'from': self.selected_piece,
+                                'to': release_pos,
+                                'confidence': gesture.confidence
+                            }
+                            # Clear selection - backend will reselect if move is invalid but clicks valid piece
+                            self.selected_piece = None
+                            self.last_action_time = current_time
+                            return action
+                    else:
+                        # Released outside board - cancel selection
+                        logger.info(f"GESTURE CANCEL: Released outside board, deselecting {self.selected_piece}")
+                        self.selected_piece = None
+                        self.last_action_time = current_time
+                        return {
+                            'type': GameAction.CANCEL.value,
+                            'confidence': gesture.confidence
+                        }
         
-        # Continuous hover feedback when hand is open
+        # Continuous hover feedback (replicating mouse movement)
+        # Only when hand is open (not dragging) - just like mouse hover
         if not self.is_hand_closed:
             stable_pos = self._get_stable_hover_position(board_pos)
             if stable_pos and stable_pos != self.hover_position:
@@ -126,6 +190,7 @@ class InputMapper:
         
         # Need enough history to make a decision
         if len(self.gesture_history) < self.gesture_stability_threshold:
+            logger.debug(f"INPUT_MAPPER: Building gesture history {len(self.gesture_history)}/{self.gesture_stability_threshold}")
             return False
         
         # Count recent detections
@@ -139,17 +204,18 @@ class InputMapper:
         
         # Only change state if we have a strong majority
         if stable_closed and not self.is_hand_closed:
-            logger.info(f"HAND STATE CHANGE: open -> closed (confirmed: {closed_count}/{self.gesture_stability_threshold} frames)")
+            logger.warning(f"INPUT_MAPPER: *** HAND STATE CHANGE *** open -> closed (confirmed: {closed_count}/{self.gesture_stability_threshold} frames)")
             self.was_grabbing = self.is_hand_closed
             self.is_hand_closed = True
             return True
         elif stable_open and self.is_hand_closed:
-            logger.info(f"HAND STATE CHANGE: closed -> open (confirmed: {open_count}/{self.gesture_stability_threshold} frames)")
+            logger.warning(f"INPUT_MAPPER: *** HAND STATE CHANGE *** closed -> open (confirmed: {open_count}/{self.gesture_stability_threshold} frames)")
             self.was_grabbing = self.is_hand_closed
             self.is_hand_closed = False
             return True
         
         # No stable state change
+        logger.debug(f"INPUT_MAPPER: No state change - closed_votes:{closed_count}, open_votes:{open_count}, current_closed:{self.is_hand_closed}")
         return False
     
     def _get_stable_hover_position(self, board_pos: Optional[Tuple[int, int]]) -> Optional[Tuple[int, int]]:
@@ -175,28 +241,50 @@ class InputMapper:
     
     def _screen_to_board_coords(self, screen_pos: Tuple[float, float],
                                 screen_dims: Tuple[int, int]) -> Optional[Tuple[int, int]]:
-        """Convert screen coordinates to board grid position"""
+        """Convert screen coordinates to board grid position
+        
+        NOTE: screen_pos is in normalized coordinates (0-1), not pixel coordinates!
+        """
         if not screen_pos:
+            logger.debug(f"INPUT_MAPPER: _screen_to_board_coords - screen_pos is None")
             return None
             
-        x, y = screen_pos
+        norm_x, norm_y = screen_pos  # These are 0-1 normalized coordinates
         width, height = screen_dims
         
-        # Define board area (centered square in the screen)
-        board_size_pixels = min(width, height) * 0.8
+        # Convert normalized coordinates to pixel coordinates
+        x = norm_x * width
+        y = norm_y * height
+        
+        logger.info(f"INPUT_MAPPER: _screen_to_board_coords - Normalized: ({norm_x:.3f}, {norm_y:.3f}) -> Pixels: ({x:.1f}, {y:.1f}), Screen: ({width}, {height})")
+        
+        # Define board area - matches Board.js logic exactly (lines 34-35)
+        # The board uses the full canvas size, not 80% of it
+        board_size_pixels = min(width, height)
         board_x_offset = (width - board_size_pixels) / 2
         board_y_offset = (height - board_size_pixels) / 2
+        
+        logger.info(f"INPUT_MAPPER: Board area - size:{board_size_pixels:.1f}px, x_offset:{board_x_offset:.1f}, y_offset:{board_y_offset:.1f}")
         
         # Check if position is within board area
         if (x < board_x_offset or x > board_x_offset + board_size_pixels or
             y < board_y_offset or y > board_y_offset + board_size_pixels):
+            logger.info(f"INPUT_MAPPER: Position outside board area - "
+                       f"x:{x:.1f} not in [{board_x_offset:.1f}, {board_x_offset + board_size_pixels:.1f}], "
+                       f"y:{y:.1f} not in [{board_y_offset:.1f}, {board_y_offset + board_size_pixels:.1f}]")
             return None
         
         # Normalize to board coordinates
         board_x = int((x - board_x_offset) / board_size_pixels * self.board_size)
         board_y = int((y - board_y_offset) / board_size_pixels * self.board_size)
         
+        logger.info(f"INPUT_MAPPER: Calculated board coords - board_x:{board_x}, board_y:{board_y}")
+        
         # Validate bounds
         if 0 <= board_x < self.board_size and 0 <= board_y < self.board_size:
-            return (board_y, board_x)  # Return as (row, col)
+            result = (board_y, board_x)  # Return as (row, col)
+            logger.warning(f"INPUT_MAPPER: *** VALID BOARD POSITION *** {result}")
+            return result
+        
+        logger.info(f"INPUT_MAPPER: Board coords out of bounds - board_x:{board_x}, board_y:{board_y}")
         return None

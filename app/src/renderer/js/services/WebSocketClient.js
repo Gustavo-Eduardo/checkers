@@ -55,6 +55,13 @@ class WebSocketClient {
   handleMessage(data) {
     const { type, data: payload } = data;
     
+    // LOG: All received messages for debugging
+    if (type === 'piece_selected' || type === 'selection_cleared' || type === 'move_result') {
+      console.warn(`FRONTEND: *** RECEIVED CRITICAL MESSAGE *** Type: ${type}, Payload:`, payload);
+    } else {
+      console.log(`FRONTEND: Received message - Type: ${type}`);
+    }
+    
     if (this.listeners.has(type)) {
       this.listeners.get(type).forEach(callback => {
         try {

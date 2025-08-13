@@ -255,87 +255,90 @@ class MediaPipeHandTracker:
         
         return debug_frame
 
-class GestureRecognizer:
-    """Enhanced gesture recognition using MediaPipe hand landmarks"""
-    
-    def __init__(self):
-        self.gesture_history = []
-        self.history_size = 10
-        self.pointing_threshold = 8   # Reduced frames for faster pointing recognition
-        self.last_position = None
-        self.stationary_frames = 0
-        self.movement_threshold = 15  # Reduced threshold for more sensitive movement detection
-        
-    def recognize_gesture(self, hand_data: Dict) -> HandGesture:
-        """Classify gesture based on MediaPipe hand data"""
-        
-        if not hand_data or 'landmarks' not in hand_data:
-            return HandGesture(
-                gesture_type='none',
-                confidence=0.0,
-                position=(0, 0),
-                hand_landmarks=None,
-                finger_count=0
-            )
-        
-        finger_states = hand_data.get('finger_states', [False] * 5)
-        fingers_up = hand_data.get('fingers_up', 0)
-        confidence = hand_data.get('confidence', 0.5)
-        index_tip = hand_data.get('index_tip', hand_data['center'])
-        
-        # Track movement for stability
-        if self.last_position:
-            distance = math.sqrt(
-                (index_tip[0] - self.last_position[0])**2 + 
-                (index_tip[1] - self.last_position[1])**2
-            )
-            if distance < self.movement_threshold:
-                self.stationary_frames += 1
-            else:
-                self.stationary_frames = 0
-        else:
-            self.stationary_frames = 0
-            
-        self.last_position = index_tip
-        
-        # Simplified binary gesture classification
-        gesture_type = 'hover'  # Default to hover
-        gesture_confidence = confidence
-        
-        if fingers_up <= 1:  # Closed fist (0-1 fingers)
-            gesture_type = 'grab'
-            gesture_confidence = min(confidence + 0.2, 1.0)
-        else:  # Open hand (2+ fingers)
-            gesture_type = 'hover'
-            gesture_confidence = confidence
-        
-        # Make gestures more responsive by checking recent gesture history
-        if len(self.gesture_history) >= 3:
-            recent_gestures = [g['gesture'] for g in self.gesture_history[-3:]]
-            if recent_gestures.count(gesture_type) >= 2:
-                # Boost confidence if gesture is consistent
-                gesture_confidence = min(gesture_confidence + 0.1, 1.0)
-            
-        # Use palm center for more stable positioning, index tip for pointing
-        position = hand_data.get('palm_center', index_tip)
-        if gesture_type == 'point':
-            position = index_tip  # Use precise finger tip for pointing
-            
-        # Update history
-        self.gesture_history.append({
-            'gesture': gesture_type,
-            'fingers': fingers_up,
-            'position': position,
-            'confidence': gesture_confidence
-        })
-        
-        if len(self.gesture_history) > self.history_size:
-            self.gesture_history.pop(0)
-            
-        return HandGesture(
-            gesture_type=gesture_type,
-            confidence=gesture_confidence,
-            position=position,
-            hand_landmarks=np.array(hand_data['landmarks']),
-            finger_count=fingers_up
-        )
+# DISABLED: Complex gesture recognition replaced with simple binary detection
+# Use simple_hand_tracker.py for binary open/closed hand detection instead
+
+# class GestureRecognizer:
+#     """Enhanced gesture recognition using MediaPipe hand landmarks"""
+#     
+#     def __init__(self):
+#         self.gesture_history = []
+#         self.history_size = 10
+#         self.pointing_threshold = 8   # Reduced frames for faster pointing recognition
+#         self.last_position = None
+#         self.stationary_frames = 0
+#         self.movement_threshold = 15  # Reduced threshold for more sensitive movement detection
+#         
+#     def recognize_gesture(self, hand_data: Dict) -> HandGesture:
+#         """Classify gesture based on MediaPipe hand data"""
+#         
+#         if not hand_data or 'landmarks' not in hand_data:
+#             return HandGesture(
+#                 gesture_type='none',
+#                 confidence=0.0,
+#                 position=(0, 0),
+#                 hand_landmarks=None,
+#                 finger_count=0
+#             )
+#         
+#         finger_states = hand_data.get('finger_states', [False] * 5)
+#         fingers_up = hand_data.get('fingers_up', 0)
+#         confidence = hand_data.get('confidence', 0.5)
+#         index_tip = hand_data.get('index_tip', hand_data['center'])
+#         
+#         # Track movement for stability
+#         if self.last_position:
+#             distance = math.sqrt(
+#                 (index_tip[0] - self.last_position[0])**2 + 
+#                 (index_tip[1] - self.last_position[1])**2
+#             )
+#             if distance < self.movement_threshold:
+#                 self.stationary_frames += 1
+#             else:
+#                 self.stationary_frames = 0
+#         else:
+#             self.stationary_frames = 0
+#             
+#         self.last_position = index_tip
+#         
+#         # Simplified binary gesture classification
+#         gesture_type = 'hover'  # Default to hover
+#         gesture_confidence = confidence
+#         
+#         if fingers_up <= 1:  # Closed fist (0-1 fingers)
+#             gesture_type = 'grab'
+#             gesture_confidence = min(confidence + 0.2, 1.0)
+#         else:  # Open hand (2+ fingers)
+#             gesture_type = 'hover'
+#             gesture_confidence = confidence
+#         
+#         # Make gestures more responsive by checking recent gesture history
+#         if len(self.gesture_history) >= 3:
+#             recent_gestures = [g['gesture'] for g in self.gesture_history[-3:]]
+#             if recent_gestures.count(gesture_type) >= 2:
+#                 # Boost confidence if gesture is consistent
+#                 gesture_confidence = min(gesture_confidence + 0.1, 1.0)
+#             
+#         # Use palm center for more stable positioning, index tip for pointing
+#         position = hand_data.get('palm_center', index_tip)
+#         if gesture_type == 'point':
+#             position = index_tip  # Use precise finger tip for pointing
+#             
+#         # Update history
+#         self.gesture_history.append({
+#             'gesture': gesture_type,
+#             'fingers': fingers_up,
+#             'position': position,
+#             'confidence': gesture_confidence
+#         })
+#         
+#         if len(self.gesture_history) > self.history_size:
+#             self.gesture_history.pop(0)
+#             
+#         return HandGesture(
+#             gesture_type=gesture_type,
+#             confidence=gesture_confidence,
+#             position=position,
+#             hand_landmarks=np.array(hand_data['landmarks']),
+#             finger_count=fingers_up
+#         )
