@@ -308,12 +308,15 @@ class CheckersBoard {
   }
 
   updateSelection(position, validMoves = []) {
+    console.warn(`FRONTEND: *** BOARD.updateSelection *** Position: ${position}, Valid moves: ${validMoves?.length || 0}, Previous selection: ${this.selectedPiece}`);
     this.selectedPiece = position;
     this.validMoves = validMoves;
     this.render(this.currentGameState);
+    console.warn(`FRONTEND: Board selection updated - selectedPiece now: ${this.selectedPiece}`);
   }
 
   clearSelection() {
+    console.warn(`FRONTEND: *** BOARD.clearSelection *** Clearing selection - was: ${this.selectedPiece}`);
     this.selectedPiece = null;
     this.validMoves = [];
     this.render(this.currentGameState);

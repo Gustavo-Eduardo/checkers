@@ -357,87 +357,90 @@ class AdvancedHandTracker:
         
         return best_candidate
 
-class GestureRecognizer:
-    """Enhanced gesture recognition with better stability"""
-    
-    def __init__(self):
-        self.gesture_history = []
-        self.history_size = 10
-        self.click_threshold = 40
-        self.last_position = None
-        self.stationary_frames = 0
-        self.pointing_threshold = 30  # Increased for more stable pointing
-        
-    def recognize_gesture(self, hand_data: Dict) -> HandGesture:
-        """Enhanced gesture classification"""
-        if not hand_data or not hand_data.get('center'):
-            return HandGesture(
-                gesture_type='none',
-                confidence=0.0,
-                position=(0, 0),
-                hand_landmarks=None
-            )
-        
-        center = hand_data['center']
-        area = hand_data['area']
-        finger_count = hand_data.get('finger_count', 0)
-        
-        # Track movement stability
-        if self.last_position:
-            movement = np.sqrt((center[0] - self.last_position[0])**2 + 
-                             (center[1] - self.last_position[1])**2)
-            
-            if movement < self.click_threshold:
-                self.stationary_frames += 1
-            else:
-                self.stationary_frames = 0
-        else:
-            movement = 0
-            self.stationary_frames = 0
-            
-        self.last_position = center
-        
-        # Enhanced gesture determination
-        gesture_type = 'hover'
-        confidence = hand_data.get('confidence', 0.5)
-        
-        # Pointing gesture - requires stability AND finger detection
-        if self.stationary_frames > self.pointing_threshold:
-            if finger_count == 1:  # Index finger pointing
-                gesture_type = 'point'
-                confidence = min(confidence + 0.3, 1.0)
-            elif finger_count >= 2:  # Multiple fingers - less confident pointing
-                gesture_type = 'point'
-                confidence = min(confidence + 0.1, 1.0)
-            else:
-                gesture_type = 'point'  # Fallback to position-based
-                
-        # Grab gesture - closed fist (low finger count, compact shape)
-        elif finger_count == 0 and area < 5000:
-            gesture_type = 'grab'
-            confidence = min(confidence + 0.2, 1.0)
-            
-        # Release gesture - open hand (many fingers, larger area)
-        elif finger_count >= 4 and area > 8000:
-            gesture_type = 'release'
-            confidence = min(confidence + 0.2, 1.0)
-            
-        # Update history for smoothing
-        self.gesture_history.append({
-            'area': area, 
-            'center': center, 
-            'gesture': gesture_type,
-            'fingers': finger_count
-        })
-        if len(self.gesture_history) > self.history_size:
-            self.gesture_history.pop(0)
-            
-        # Use palm center for more accurate pointing
-        position = hand_data.get('palm_center', hand_data.get('topmost', center))
-        
-        return HandGesture(
-            gesture_type=gesture_type,
-            confidence=confidence,
-            position=position,
-            hand_landmarks=None
-        )
+# DISABLED: Complex gesture recognition replaced with simple binary detection
+# Use simple_hand_tracker.py for binary open/closed hand detection instead
+
+# class GestureRecognizer:
+#     """Enhanced gesture recognition with better stability"""
+#     
+#     def __init__(self):
+#         self.gesture_history = []
+#         self.history_size = 10
+#         self.click_threshold = 40
+#         self.last_position = None
+#         self.stationary_frames = 0
+#         self.pointing_threshold = 30  # Increased for more stable pointing
+#         
+#     def recognize_gesture(self, hand_data: Dict) -> HandGesture:
+#         """Enhanced gesture classification"""
+#         if not hand_data or not hand_data.get('center'):
+#             return HandGesture(
+#                 gesture_type='none',
+#                 confidence=0.0,
+#                 position=(0, 0),
+#                 hand_landmarks=None
+#             )
+#         
+#         center = hand_data['center']
+#         area = hand_data['area']
+#         finger_count = hand_data.get('finger_count', 0)
+#         
+#         # Track movement stability
+#         if self.last_position:
+#             movement = np.sqrt((center[0] - self.last_position[0])**2 + 
+#                              (center[1] - self.last_position[1])**2)
+#             
+#             if movement < self.click_threshold:
+#                 self.stationary_frames += 1
+#             else:
+#                 self.stationary_frames = 0
+#         else:
+#             movement = 0
+#             self.stationary_frames = 0
+#             
+#         self.last_position = center
+#         
+#         # Enhanced gesture determination
+#         gesture_type = 'hover'
+#         confidence = hand_data.get('confidence', 0.5)
+#         
+#         # Pointing gesture - requires stability AND finger detection
+#         if self.stationary_frames > self.pointing_threshold:
+#             if finger_count == 1:  # Index finger pointing
+#                 gesture_type = 'point'
+#                 confidence = min(confidence + 0.3, 1.0)
+#             elif finger_count >= 2:  # Multiple fingers - less confident pointing
+#                 gesture_type = 'point'
+#                 confidence = min(confidence + 0.1, 1.0)
+#             else:
+#                 gesture_type = 'point'  # Fallback to position-based
+#                 
+#         # Grab gesture - closed fist (low finger count, compact shape)
+#         elif finger_count == 0 and area < 5000:
+#             gesture_type = 'grab'
+#             confidence = min(confidence + 0.2, 1.0)
+#             
+#         # Release gesture - open hand (many fingers, larger area)
+#         elif finger_count >= 4 and area > 8000:
+#             gesture_type = 'release'
+#             confidence = min(confidence + 0.2, 1.0)
+#             
+#         # Update history for smoothing
+#         self.gesture_history.append({
+#             'area': area, 
+#             'center': center, 
+#             'gesture': gesture_type,
+#             'fingers': finger_count
+#         })
+#         if len(self.gesture_history) > self.history_size:
+#             self.gesture_history.pop(0)
+#             
+#         # Use palm center for more accurate pointing
+#         position = hand_data.get('palm_center', hand_data.get('topmost', center))
+#         
+#         return HandGesture(
+#             gesture_type=gesture_type,
+#             confidence=confidence,
+#             position=position,
+#             hand_landmarks=None
+#         )

@@ -48,8 +48,8 @@ class InputVisualizer {
     this.clearCanvas();
     
     // Convert normalized position to canvas coordinates
-    const x = handData.position[0] * (this.canvas.clientWidth / window.devicePixelRatio);
-    const y = handData.position[1] * (this.canvas.clientHeight / window.devicePixelRatio);
+    const x = handData.position[0] * this.canvas.clientWidth;
+    const y = handData.position[1] * this.canvas.clientHeight;
     
     // Add to trail
     this.gestureTrail.push({ x, y, timestamp: Date.now() });

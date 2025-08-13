@@ -78,76 +78,79 @@ class HandTracker:
             'debug': debug_info
         }
 
-class GestureRecognizer:
-    """Recognize gestures based on hand detection"""
-    
-    def __init__(self):
-        self.gesture_history = []
-        self.history_size = 5
-        self.click_threshold = 50  # Movement threshold for click detection
-        self.last_position = None
-        self.stationary_frames = 0
-        
-    def recognize_gesture(self, hand_data: Dict) -> HandGesture:
-        """Classify hand gesture for game input"""
-        if not hand_data:
-            return HandGesture(
-                gesture_type='none',
-                confidence=0.0,
-                position=(0, 0),
-                hand_landmarks=None
-            )
-        
-        center = hand_data['center']
-        area = hand_data['area']
-        
-        # Track movement
-        if self.last_position:
-            movement = np.sqrt((center[0] - self.last_position[0])**2 + 
-                             (center[1] - self.last_position[1])**2)
-            
-            if movement < self.click_threshold:
-                self.stationary_frames += 1
-            else:
-                self.stationary_frames = 0
-        else:
-            movement = 0
-            self.stationary_frames = 0
-        
-        self.last_position = center
-        
-        # Determine gesture based on area changes and movement
-        gesture_type = 'hover'
-        confidence = 0.7
-        
-        # If hand is stationary for several frames, consider it a selection
-        if self.stationary_frames > 20:  # Increased threshold for more stable detection
-            gesture_type = 'point'
-            confidence = 0.9
-        
-        # Large area changes might indicate grab/release
-        if len(self.gesture_history) > 0:
-            avg_area = np.mean([h['area'] for h in self.gesture_history[-3:] if 'area' in h])
-            area_change = abs(area - avg_area) / avg_area if avg_area > 0 else 0
-            
-            if area_change > 0.3:
-                if area > avg_area:
-                    gesture_type = 'release'
-                else:
-                    gesture_type = 'grab'
-                confidence = 0.8
-        
-        # Update history
-        self.gesture_history.append({'area': area, 'center': center})
-        if len(self.gesture_history) > self.history_size:
-            self.gesture_history.pop(0)
-        
-        # Use topmost point for more precise pointing
-        position = hand_data.get('topmost', center)
-        
-        return HandGesture(
-            gesture_type=gesture_type,
-            confidence=confidence,
-            position=position,
-            hand_landmarks=None
-        )
+# DISABLED: Complex gesture recognition replaced with simple binary detection
+# Use simple_hand_tracker.py for binary open/closed hand detection instead
+
+# class GestureRecognizer:
+#     """Recognize gestures based on hand detection"""
+#     
+#     def __init__(self):
+#         self.gesture_history = []
+#         self.history_size = 5
+#         self.click_threshold = 50  # Movement threshold for click detection
+#         self.last_position = None
+#         self.stationary_frames = 0
+#         
+#     def recognize_gesture(self, hand_data: Dict) -> HandGesture:
+#         """Classify hand gesture for game input"""
+#         if not hand_data:
+#             return HandGesture(
+#                 gesture_type='none',
+#                 confidence=0.0,
+#                 position=(0, 0),
+#                 hand_landmarks=None
+#             )
+#         
+#         center = hand_data['center']
+#         area = hand_data['area']
+#         
+#         # Track movement
+#         if self.last_position:
+#             movement = np.sqrt((center[0] - self.last_position[0])**2 + 
+#                              (center[1] - self.last_position[1])**2)
+#             
+#             if movement < self.click_threshold:
+#                 self.stationary_frames += 1
+#             else:
+#                 self.stationary_frames = 0
+#         else:
+#             movement = 0
+#             self.stationary_frames = 0
+#         
+#         self.last_position = center
+#         
+#         # Determine gesture based on area changes and movement
+#         gesture_type = 'hover'
+#         confidence = 0.7
+#         
+#         # If hand is stationary for several frames, consider it a selection
+#         if self.stationary_frames > 20:  # Increased threshold for more stable detection
+#             gesture_type = 'point'
+#             confidence = 0.9
+#         
+#         # Large area changes might indicate grab/release
+#         if len(self.gesture_history) > 0:
+#             avg_area = np.mean([h['area'] for h in self.gesture_history[-3:] if 'area' in h])
+#             area_change = abs(area - avg_area) / avg_area if avg_area > 0 else 0
+#             
+#             if area_change > 0.3:
+#                 if area > avg_area:
+#                     gesture_type = 'release'
+#                 else:
+#                     gesture_type = 'grab'
+#                 confidence = 0.8
+#         
+#         # Update history
+#         self.gesture_history.append({'area': area, 'center': center})
+#         if len(self.gesture_history) > self.history_size:
+#             self.gesture_history.pop(0)
+#         
+#         # Use topmost point for more precise pointing
+#         position = hand_data.get('topmost', center)
+#         
+#         return HandGesture(
+#             gesture_type=gesture_type,
+#             confidence=confidence,
+#             position=position,
+#             hand_landmarks=None
+#         )

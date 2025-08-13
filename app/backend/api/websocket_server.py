@@ -12,8 +12,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.game_engine import CheckersEngine
 from core.camera_manager import CameraManager
-from vision.mediapipe_hand_tracker import MediaPipeHandTracker, GestureRecognizer
 from processing.input_mapper import InputMapper
+
+# Try to import MediaPipe-based tracker, fall back to simple tracker if not available
+try:
+    from vision.simple_hand_tracker import SimpleHandTracker
+    HAND_TRACKER_TYPE = "MediaPipe"
+except ImportError:
+    from vision.fallback_hand_tracker import FallbackHandTracker as SimpleHandTracker
+    HAND_TRACKER_TYPE = "Fallback (Testing)"
 import cv2
 import numpy as np
 import base64
@@ -30,13 +37,15 @@ class GameWebSocketServer:
         self.clients: Set[websockets.WebSocketServerProtocol] = set()
         self.game_engine = CheckersEngine()
         self.camera_manager = CameraManager()
-        self.hand_tracker = MediaPipeHandTracker()
-        self.gesture_recognizer = GestureRecognizer()
+        self.hand_tracker = SimpleHandTracker()
         self.input_mapper = InputMapper()
         self.camera_active = False
         self.processing_task = None
         self.frame_skip_counter = 0
         self.frame_skip_rate = 1  # Process every frame for better responsiveness
+        self.board_dimensions = (640, 480)  # Default fallback dimensions
+        
+        logger.info(f"Using hand tracker: {HAND_TRACKER_TYPE}")
         
     async def register(self, websocket):
         """Register new client connection"""
@@ -86,6 +95,19 @@ class GameWebSocketServer:
         logger.info(f"Received message type: {msg_type}")
         
         if msg_type == 'start_camera':
+            # Store board dimensions for coordinate alignment
+            board_dimensions = data.get('board_dimensions')
+            if board_dimensions:
+                self.board_dimensions = (
+                    int(board_dimensions['width']),
+                    int(board_dimensions['height'])
+                )
+                logger.info(f"Received board dimensions: {self.board_dimensions}")
+            else:
+                # Fallback to default dimensions
+                self.board_dimensions = (640, 480)
+                logger.warning("No board dimensions provided, using fallback")
+            
             # Start camera processing
             success = await self.start_camera_processing()
             return {
@@ -102,12 +124,14 @@ class GameWebSocketServer:
             }
             
         elif msg_type == 'move':
-            # Direct move command (fallback/testing)
+            # Direct move command (used by mouse mode)
             result = self.game_engine.make_move(
                 tuple(data['from']),
                 tuple(data['to'])
             )
             if result['valid']:
+                # Move successful - clear InputMapper selection
+                self.input_mapper.update_game_state(None)
                 return {
                     'broadcast': True,
                     'data': {
@@ -123,6 +147,7 @@ class GameWebSocketServer:
             
         elif msg_type == 'reset':
             self.game_engine.initialize_board()
+            self.input_mapper.update_game_state(None)  # Clear selection on reset
             return {
                 'broadcast': True,
                 'data': {
@@ -139,6 +164,11 @@ class GameWebSocketServer:
         elif msg_type == 'get_valid_moves':
             pos = tuple(data.get('position', []))
             moves = self.game_engine.get_valid_moves(pos) if pos else []
+            # Update InputMapper state when mouse mode selects a piece
+            if pos and moves:
+                self.input_mapper.update_game_state(pos)
+            else:
+                self.input_mapper.update_game_state(None)
             return {
                 'type': 'valid_moves',
                 'data': {
@@ -153,10 +183,13 @@ class GameWebSocketServer:
         """Send message to all connected clients"""
         if self.clients:
             message_str = json.dumps(message)
+            logger.info(f"WEBSOCKET: Broadcasting to {len(self.clients)} clients: {message.get('type', 'unknown_type')}")
             await asyncio.gather(
                 *[client.send(message_str) for client in self.clients],
                 return_exceptions=True
             )
+        else:
+            logger.warning(f"WEBSOCKET: No clients connected, cannot broadcast: {message.get('type', 'unknown_type')}")
             
     async def start_camera_processing(self) -> bool:
         """Start processing camera frames for gesture input"""
@@ -206,46 +239,52 @@ class GameWebSocketServer:
                         new_height = int(height * scale)
                         frame = cv2.resize(frame, (new_width, new_height))
                     
-                    # Detect hand
-                    hand_data = self.hand_tracker.detect_hands(frame)
+                    # Detect hand using simple binary tracker
+                    gesture = self.hand_tracker.detect_hand_state(frame)
                     
-                    if hand_data:
-                        # Recognize gesture
-                        gesture = self.gesture_recognizer.recognize_gesture(hand_data)
-                        
-                        # Map to game action
+                    if gesture:
+                        # Map to game action using board dimensions for coordinate alignment
                         action = self.input_mapper.map_gesture_to_action(
                             gesture,
-                            (frame.shape[1], frame.shape[0])
+                            self.board_dimensions
                         )
                         
                         if action:
+                            logger.warning(f"WEBSOCKET: *** ACTION GENERATED FROM CV *** {action}")
                             await self.handle_cv_action(action)
+                        else:
+                            logger.debug(f"WEBSOCKET: No action generated from gesture")
                         
                         # Send hand position for visualization (ensure serializable)
                         await self.broadcast({
                             'type': 'hand_position',
                             'data': {
                                 'position': (float(gesture.position[0]), float(gesture.position[1])) if gesture.position else None,
-                                'gesture': str(gesture.gesture_type),
-                                'confidence': float(gesture.confidence)
+                                'gesture': 'open' if gesture.is_open else 'grabbing',
+                                'confidence': float(gesture.confidence),
+                                'is_open': gesture.is_open  # Add binary state for cursor color
                             }
                         })
                     
                     # Send frame preview with debug overlays (less frequently)
                     if len(self.clients) > 0 and self.frame_skip_counter % 3 == 0:  # Every 3rd processed frame
-                        # Use MediaPipe's debug visualization
-                        debug_frame = self.hand_tracker.create_debug_frame(frame, hand_data)
+                        # Use simple hand tracker's debug visualization with cursor colors
+                        debug_frame = self.hand_tracker.create_debug_frame(frame, gesture)
                         
                         # Resize debug frame for preview
                         preview = cv2.resize(debug_frame, (320, 240))
                         _, buffer = cv2.imencode('.jpg', preview, [cv2.IMWRITE_JPEG_QUALITY, 60])  # Lower quality
                         frame_base64 = base64.b64encode(buffer).decode('utf-8')
                         
-                        # Extract only serializable debug info
+                        # Extract debug info for simple tracker
                         debug_info = {}
-                        if hand_data and 'debug' in hand_data:
-                            debug_info = hand_data['debug'].copy()
+                        if gesture:
+                            debug_info = {
+                                'is_open': gesture.is_open,
+                                'confidence': gesture.confidence,
+                                'raw_area_ratio': gesture.raw_area_ratio,
+                                'detection_method': 'simple_binary'
+                            }
                         
                         await self.broadcast({
                             'type': 'camera_frame',
@@ -265,17 +304,33 @@ class GameWebSocketServer:
         """Handle action from computer vision input"""
         action_type = action['type']
         
+        logger.warning(f"WEBSOCKET: *** HANDLING CV ACTION *** Type: {action_type}, Data: {action}")
+        
         if action_type == 'select_piece':
             pos = action['position']
             if pos:
-                # Send selection feedback
-                await self.broadcast({
-                    'type': 'piece_selected',
-                    'data': {
-                        'position': pos,
-                        'valid_moves': self.game_engine.get_valid_moves(pos)
+                # Check if position has current player's piece (replicates mouse logic)
+                piece = self.game_engine.board[pos[0]][pos[1]]
+                logger.info(f"WEBSOCKET: SELECT_PIECE at {pos} - Piece value: {piece}, Current player: {self.game_engine.current_player}")
+                
+                if piece != 0 and piece * self.game_engine.current_player > 0:
+                    # Valid piece for current player - select it
+                    self.input_mapper.update_game_state(pos)  # Sync InputMapper state
+                    valid_moves = self.game_engine.get_valid_moves(pos)
+                    
+                    broadcast_msg = {
+                        'type': 'piece_selected',
+                        'data': {
+                            'position': pos,
+                            'valid_moves': valid_moves
+                        }
                     }
-                })
+                    logger.warning(f"WEBSOCKET: *** BROADCASTING PIECE_SELECTED *** {broadcast_msg}")
+                    await self.broadcast(broadcast_msg)
+                else:
+                    # Invalid piece/empty square - clear selection
+                    logger.info(f"WEBSOCKET: Invalid piece/empty square at {pos}, clearing selection")
+                    self.input_mapper.update_game_state(None)
                 
         elif action_type == 'move_piece':
             from_pos = action['from']
@@ -283,10 +338,40 @@ class GameWebSocketServer:
             if from_pos and to_pos:
                 result = self.game_engine.make_move(from_pos, to_pos)
                 if result['valid']:
+                    # Move successful - clear selection
+                    self.input_mapper.update_game_state(None)
                     await self.broadcast({
                         'type': 'move_result',
                         'data': result
                     })
+                else:
+                    # Invalid move - check if target square has current player's piece
+                    target_piece = self.game_engine.board[to_pos[0]][to_pos[1]]
+                    if target_piece != 0 and target_piece * self.game_engine.current_player > 0:
+                        # Target square has valid piece - reselect it (replicates mouse behavior)
+                        self.input_mapper.update_game_state(to_pos)
+                        await self.broadcast({
+                            'type': 'piece_selected',
+                            'data': {
+                                'position': to_pos,
+                                'valid_moves': self.game_engine.get_valid_moves(to_pos)
+                            }
+                        })
+                    else:
+                        # Invalid move to empty/enemy square - clear selection
+                        self.input_mapper.update_game_state(None)
+                        await self.broadcast({
+                            'type': 'selection_cleared',
+                            'data': {}
+                        })
+                    
+        elif action_type == 'cancel':
+            # Clear selection (replicates right-click or clicking empty space)
+            self.input_mapper.update_game_state(None)
+            await self.broadcast({
+                'type': 'selection_cleared',
+                'data': {}
+            })
                     
         elif action_type == 'hover':
             pos = action['position']
@@ -297,92 +382,9 @@ class GameWebSocketServer:
                 }
             })
     
-    def create_debug_frame(self, original_frame, hand_data):
-        """Create frame with debug overlays"""
-        debug_frame = original_frame.copy()
-        
-        # Always recreate mask for visual overlay
-        hsv = cv2.cvtColor(original_frame, cv2.COLOR_BGR2HSV)
-        lower_skin = np.array([0, 30, 60], dtype=np.uint8)
-        upper_skin = np.array([25, 255, 255], dtype=np.uint8)
-        mask = cv2.inRange(hsv, lower_skin, upper_skin)
-        
-        # Draw detection mask as blue overlay
-        mask_colored = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-        mask_colored[:, :, 0] = 0  # Remove blue channel
-        mask_colored[:, :, 1] = 0  # Remove green channel
-        # Blend with original frame
-        debug_frame = cv2.addWeighted(debug_frame, 0.7, mask_colored, 0.3, 0)
-        
-        # Draw all contours in yellow
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            # Draw all contours
-            cv2.drawContours(debug_frame, contours, -1, (0, 255, 255), 2)
-            
-            # Draw area text for each contour
-            for i, contour in enumerate(contours):
-                area = cv2.contourArea(contour)
-                if area > 100:  # Only show significant contours
-                    x, y, w, h = cv2.boundingRect(contour)
-                    cv2.putText(debug_frame, f'{int(area)}', (x, y-10), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-        
-        # Draw hand detection results
-        if hand_data and hand_data.get('center'):
-            center = hand_data['center']
-            bbox = hand_data.get('bbox')
-            area = hand_data.get('area', 0)
-            
-            # Draw center point
-            cv2.circle(debug_frame, center, 8, (0, 255, 0), -1)
-            cv2.circle(debug_frame, center, 12, (255, 255, 255), 2)
-            
-            # Draw bounding box
-            if bbox:
-                x, y, w, h = bbox
-                cv2.rectangle(debug_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                
-                # Draw area text
-                cv2.putText(debug_frame, f'Area: {int(area)}', (x, y - 30), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-            
-            # Draw topmost point
-            if 'topmost' in hand_data:
-                topmost = hand_data['topmost']
-                cv2.circle(debug_frame, topmost, 6, (255, 0, 0), -1)
-                cv2.putText(debug_frame, 'TOP', (topmost[0] - 15, topmost[1] - 10), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
-            
-            # Draw palm center
-            if 'palm_center' in hand_data:
-                palm = hand_data['palm_center']
-                cv2.circle(debug_frame, palm, 8, (0, 0, 255), -1)
-                cv2.circle(debug_frame, palm, 12, (255, 255, 255), 2)
-                cv2.putText(debug_frame, 'PALM', (palm[0] - 20, palm[1] + 25), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-        
-        # Draw detection info
-        height, width = debug_frame.shape[:2]
-        cv2.putText(debug_frame, 'Advanced Multi-Method Hand Detection', 
-                   (10, height - 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        
-        if hand_data and hand_data.get('debug'):
-            debug_info = hand_data['debug']
-            method = debug_info.get('detection_method', 'unknown')
-            fingers = debug_info.get('finger_count', 0)
-            cv2.putText(debug_frame, f'Method: {method.title()} | Fingers: {fingers}', 
-                       (10, height - 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        
-        # Draw areas
-        cv2.putText(debug_frame, 'Ideal Area: 3000-12000px | Max: 20000px', 
-                   (10, height - 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        
-        # Draw legend
-        cv2.putText(debug_frame, 'Green: Hand Center | Red: Palm | Blue: Skin Areas | Yellow: Motion/Edges', 
-                   (10, height - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-        
-        return debug_frame
+    # REMOVED: Old complex debug visualization replaced with simple binary tracker's built-in visualization
+    # The SimpleHandTracker.create_debug_frame() method now handles all debug visualization
+    # including blue cursor for open hand and orange cursor for closed hand
             
     def start(self):
         """Start WebSocket server"""

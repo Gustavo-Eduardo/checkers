@@ -4,7 +4,7 @@ class GameManager {
     this.board = null;
     this.inputVisualizer = null;
     this.gameState = null;
-    this.isVisionMode = false; // Start with mouse mode for easier testing
+    this.isVisionMode = true; // Start with vision mode (default from HTML)
     this.cameraActive = false;
     this.moveHistory = [];
     this.gameTimer = null;
@@ -27,12 +27,19 @@ class GameManager {
     // Set up WebSocket event listeners
     this.setupWebSocketListeners();
     
-    // Set initial input mode to mouse
+    // Set initial input mode based on HTML default (vision)
     setTimeout(() => {
-      const mouseRadio = document.querySelector('input[value="mouse"]');
-      if (mouseRadio) {
-        mouseRadio.checked = true;
+      const visionRadio = document.querySelector('input[value="vision"]:checked');
+      const mouseRadio = document.querySelector('input[value="mouse"]:checked');
+      
+      if (visionRadio) {
+        this.setInputMode('vision');
+      } else if (mouseRadio) {
         this.setInputMode('mouse');
+      } else {
+        // Fallback to vision mode
+        document.querySelector('input[value="vision"]').checked = true;
+        this.setInputMode('vision');
       }
     }, 100);
   }
@@ -47,6 +54,7 @@ class GameManager {
     });
 
     this.wsClient.on('piece_selected', (data) => {
+      console.warn(`FRONTEND: *** PIECE_SELECTED HANDLER *** Position: ${data.position}, Valid moves: ${data.valid_moves?.length || 0}`);
       this.board.updateSelection(data.position, data.valid_moves);
     });
 
@@ -78,6 +86,12 @@ class GameManager {
 
     this.wsClient.on('valid_moves', (data) => {
       this.board.updateSelection(data.position, data.moves);
+    });
+
+    this.wsClient.on('selection_cleared', (data) => {
+      // Handle gesture-based selection clearing (replicates right-click behavior)
+      console.warn(`FRONTEND: *** SELECTION_CLEARED HANDLER *** Clearing board selection`);
+      this.board.clearSelection();
     });
   }
 
@@ -199,7 +213,15 @@ class GameManager {
 
   startCamera() {
     if (this.wsClient.isConnected()) {
-      this.wsClient.send('start_camera');
+      // Send actual board canvas dimensions to backend for coordinate alignment
+      const boardDimensions = {
+        width: this.board.canvas.clientWidth,
+        height: this.board.canvas.clientHeight
+      };
+      
+      this.wsClient.send('start_camera', { 
+        board_dimensions: boardDimensions 
+      });
       this.updateStatus('Starting camera...');
     } else {
       this.showNotification('Not connected to backend', 'error');
