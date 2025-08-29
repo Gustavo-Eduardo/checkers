@@ -55,7 +55,13 @@ class GameManager {
 
     this.wsClient.on('piece_selected', (data) => {
       console.warn(`FRONTEND: *** PIECE_SELECTED HANDLER *** Position: ${data.position}, Valid moves: ${data.valid_moves?.length || 0}`);
-      this.board.updateSelection(data.position, data.valid_moves);
+      console.warn(`FRONTEND: Board initialized: ${!!this.board}, Game state exists: ${!!this.gameState}`);
+      
+      if (this.board) {
+        this.board.updateSelection(data.position, data.valid_moves);
+      } else {
+        console.error(`FRONTEND: Cannot update selection - board not initialized!`);
+      }
     });
 
     this.wsClient.on('hover_position', (data) => {
@@ -91,7 +97,13 @@ class GameManager {
     this.wsClient.on('selection_cleared', (data) => {
       // Handle gesture-based selection clearing (replicates right-click behavior)
       console.warn(`FRONTEND: *** SELECTION_CLEARED HANDLER *** Clearing board selection`);
-      this.board.clearSelection();
+      console.warn(`FRONTEND: Board initialized: ${!!this.board}, Game state exists: ${!!this.gameState}`);
+      
+      if (this.board) {
+        this.board.clearSelection();
+      } else {
+        console.error(`FRONTEND: Cannot clear selection - board not initialized!`);
+      }
     });
   }
 
@@ -168,8 +180,21 @@ class GameManager {
     if (result.valid) {
       // Animate the move
       this.board.animateMove(result.move.from, result.move.to, () => {
-        this.updateGameState(result);
+        // Construct proper game state from move result
+        const gameState = {
+          board: result.board,  // Backend sends 'board', not 'board_state'
+          current_player: result.current_player,
+          game_over: result.game_over,
+          all_valid_moves: result.all_valid_moves,
+          // Use piece counts from backend if available, otherwise calculate
+          piece_counts: result.piece_counts || this.calculatePieceCounts(result.board)
+        };
+        
+        this.updateGameState(gameState);
         this.addMoveToHistory(result.move);
+        
+        // Clear selection after state update
+        this.board.clearSelection();
       });
       
       if (result.move.captured) {
@@ -184,9 +209,24 @@ class GameManager {
       }
     } else {
       this.showNotification(`Invalid move: ${result.error}`, 'error');
+      this.board.clearSelection();
+    }
+  }
+
+  calculatePieceCounts(board) {
+    let red = 0, black = 0, red_kings = 0, black_kings = 0;
+    
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = board[row][col];
+        if (piece === 1) red++;
+        else if (piece === -1) black++;
+        else if (piece === 2) { red++; red_kings++; }
+        else if (piece === -2) { black++; black_kings++; }
+      }
     }
     
-    this.board.clearSelection();
+    return { red, black, red_kings, black_kings };
   }
 
   makeMove(from, to) {

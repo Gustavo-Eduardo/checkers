@@ -92,7 +92,7 @@ class GameWebSocketServer:
     async def process_message(self, data: Dict) -> Optional[Dict]:
         """Process incoming messages"""
         msg_type = data.get('type')
-        logger.info(f"Received message type: {msg_type}")
+        logger.debug(f"Received message type: {msg_type}")
         
         if msg_type == 'start_camera':
             # Store board dimensions for coordinate alignment
@@ -102,11 +102,11 @@ class GameWebSocketServer:
                     int(board_dimensions['width']),
                     int(board_dimensions['height'])
                 )
-                logger.info(f"Received board dimensions: {self.board_dimensions}")
+                logger.debug(f"Received board dimensions: {self.board_dimensions}")
             else:
                 # Fallback to default dimensions
                 self.board_dimensions = (640, 480)
-                logger.warning("No board dimensions provided, using fallback")
+                logger.debug("No board dimensions provided, using fallback")
             
             # Start camera processing
             success = await self.start_camera_processing()
@@ -132,11 +132,21 @@ class GameWebSocketServer:
             if result['valid']:
                 # Move successful - clear InputMapper selection
                 self.input_mapper.update_game_state(None)
+                # Transform result to match frontend expectations
+                transformed_result = {
+                    'valid': result['valid'],
+                    'move': result['move'],
+                    'board': result['board_state'],  # board_state -> board
+                    'current_player': result['current_player'],
+                    'game_over': result['game_over'],
+                    'all_valid_moves': {str(k): v for k, v in result['all_valid_moves'].items()},
+                    'piece_counts': {k: int(v) for k, v in self.game_engine.get_piece_counts().items()}  # Add missing piece counts
+                }
                 return {
                     'broadcast': True,
                     'data': {
                         'type': 'move_result',
-                        'data': result
+                        'data': transformed_result
                     }
                 }
             else:
@@ -183,13 +193,13 @@ class GameWebSocketServer:
         """Send message to all connected clients"""
         if self.clients:
             message_str = json.dumps(message)
-            logger.info(f"WEBSOCKET: Broadcasting to {len(self.clients)} clients: {message.get('type', 'unknown_type')}")
+            logger.debug(f"WEBSOCKET: Broadcasting to {len(self.clients)} clients: {message.get('type', 'unknown_type')}")
             await asyncio.gather(
                 *[client.send(message_str) for client in self.clients],
                 return_exceptions=True
             )
         else:
-            logger.warning(f"WEBSOCKET: No clients connected, cannot broadcast: {message.get('type', 'unknown_type')}")
+            logger.debug(f"WEBSOCKET: No clients connected, cannot broadcast: {message.get('type', 'unknown_type')}")
             
     async def start_camera_processing(self) -> bool:
         """Start processing camera frames for gesture input"""
@@ -250,7 +260,7 @@ class GameWebSocketServer:
                         )
                         
                         if action:
-                            logger.warning(f"WEBSOCKET: *** ACTION GENERATED FROM CV *** {action}")
+                            logger.info(f"WEBSOCKET: CV action generated: {action['type']} at {action.get('position', 'N/A')}")
                             await self.handle_cv_action(action)
                         else:
                             logger.debug(f"WEBSOCKET: No action generated from gesture")
@@ -304,14 +314,14 @@ class GameWebSocketServer:
         """Handle action from computer vision input"""
         action_type = action['type']
         
-        logger.warning(f"WEBSOCKET: *** HANDLING CV ACTION *** Type: {action_type}, Data: {action}")
+        logger.info(f"WEBSOCKET: Handling CV action - Type: {action_type}, Position: {action.get('position', action.get('from', 'N/A'))}")
         
         if action_type == 'select_piece':
             pos = action['position']
             if pos:
                 # Check if position has current player's piece (replicates mouse logic)
                 piece = self.game_engine.board[pos[0]][pos[1]]
-                logger.info(f"WEBSOCKET: SELECT_PIECE at {pos} - Piece value: {piece}, Current player: {self.game_engine.current_player}")
+                logger.debug(f"WEBSOCKET: SELECT_PIECE at {pos} - Piece value: {piece}, Current player: {self.game_engine.current_player}")
                 
                 if piece != 0 and piece * self.game_engine.current_player > 0:
                     # Valid piece for current player - select it
@@ -325,12 +335,18 @@ class GameWebSocketServer:
                             'valid_moves': valid_moves
                         }
                     }
-                    logger.warning(f"WEBSOCKET: *** BROADCASTING PIECE_SELECTED *** {broadcast_msg}")
+                    logger.info(f"WEBSOCKET: Piece selected at {pos} with {len(valid_moves)} valid moves")
                     await self.broadcast(broadcast_msg)
                 else:
                     # Invalid piece/empty square - clear selection
-                    logger.info(f"WEBSOCKET: Invalid piece/empty square at {pos}, clearing selection")
+                    logger.debug(f"WEBSOCKET: Invalid piece/empty square at {pos}, clearing selection")
                     self.input_mapper.update_game_state(None)
+                    
+                    # Notify frontend to clear selection
+                    await self.broadcast({
+                        'type': 'selection_cleared',
+                        'data': {}
+                    })
                 
         elif action_type == 'move_piece':
             from_pos = action['from']
@@ -340,9 +356,19 @@ class GameWebSocketServer:
                 if result['valid']:
                     # Move successful - clear selection
                     self.input_mapper.update_game_state(None)
+                    # Transform result to match frontend expectations
+                    transformed_result = {
+                        'valid': result['valid'],
+                        'move': result['move'],
+                        'board': result['board_state'],  # board_state -> board
+                        'current_player': result['current_player'],
+                        'game_over': result['game_over'],
+                        'all_valid_moves': {str(k): v for k, v in result['all_valid_moves'].items()},
+                        'piece_counts': {k: int(v) for k, v in self.game_engine.get_piece_counts().items()}  # Add missing piece counts
+                    }
                     await self.broadcast({
                         'type': 'move_result',
-                        'data': result
+                        'data': transformed_result
                     })
                 else:
                     # Invalid move - check if target square has current player's piece

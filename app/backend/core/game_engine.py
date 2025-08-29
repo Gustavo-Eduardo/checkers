@@ -1,5 +1,8 @@
 from typing import List, Optional, Tuple, Dict
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CheckersEngine:
     """Core checkers game logic"""
@@ -12,6 +15,7 @@ class CheckersEngine:
         
     def initialize_board(self):
         """Set up initial board state"""
+        logger.info("GAME_ENGINE: Initializing new game board")
         self.board = np.zeros((8, 8), dtype=int)
         
         # Red pieces (player 1) - top of board
@@ -83,6 +87,7 @@ class CheckersEngine:
         """Execute a move and return game state update"""
         valid_moves = self.get_valid_moves(from_pos)
         if to_pos not in valid_moves:
+            logger.info(f"GAME_ENGINE: Invalid move attempted - from {from_pos} to {to_pos} (valid moves: {valid_moves})")
             return {'valid': False, 'error': 'Invalid move'}
             
         from_row, from_col = from_pos
@@ -100,18 +105,23 @@ class CheckersEngine:
             mid_col = (from_col + to_col) // 2
             captured = (mid_row, mid_col)
             self.board[mid_row][mid_col] = 0
+            logger.info(f"GAME_ENGINE: Piece captured at {captured}")
             
         # Check for king promotion
         promoted = False
         if piece == 1 and to_row == 7:  # Red reaches bottom
             self.board[to_row][to_col] = 2
             promoted = True
+            logger.info(f"GAME_ENGINE: Red piece promoted to king at {to_pos}")
         elif piece == -1 and to_row == 0:  # Black reaches top
             self.board[to_row][to_col] = -2
             promoted = True
+            logger.info(f"GAME_ENGINE: Black piece promoted to king at {to_pos}")
             
         # Switch players
         self.current_player *= -1
+        player_name = "Red" if self.current_player == 1 else "Black"
+        logger.info(f"GAME_ENGINE: Valid move executed - {from_pos} to {to_pos}. Turn passed to {player_name}")
         
         # Record move
         move_record = {
@@ -142,8 +152,10 @@ class CheckersEngine:
         black_pieces = np.sum(self.board < 0)
         
         if red_pieces == 0:
+            logger.info("GAME_ENGINE: Game Over - Black wins (no red pieces remaining)")
             return -1  # Black wins
         elif black_pieces == 0:
+            logger.info("GAME_ENGINE: Game Over - Red wins (no black pieces remaining)")
             return 1  # Red wins
             
         # Check if current player has any valid moves
@@ -158,6 +170,9 @@ class CheckersEngine:
                 break
                 
         if not has_moves:
+            winner_name = "Red" if -self.current_player == 1 else "Black"
+            current_name = "Red" if self.current_player == 1 else "Black"
+            logger.info(f"GAME_ENGINE: Game Over - {winner_name} wins ({current_name} has no valid moves)")
             return -self.current_player  # Other player wins
             
         return None
