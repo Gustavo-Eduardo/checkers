@@ -47,9 +47,9 @@ class FallbackHandTracker:
         sequence_index = (self.frame_counter // 3) % len(self.gesture_sequence)  # Faster cycling
         is_open = self.gesture_sequence[sequence_index]
         
-        # DEBUG: Log gesture cycling
-        if self.frame_counter % 10 == 0:  # Log every 10 frames
-            logger.warning(f"FALLBACK_TRACKER: Frame {self.frame_counter}, Index {sequence_index}, is_open={is_open}, sequence_len={len(self.gesture_sequence)}")
+        # DEBUG: Log gesture cycling (reduced frequency)
+        if self.frame_counter % 50 == 0:  # Log every 50 frames to reduce clutter
+            logger.debug(f"FALLBACK_TRACKER: Frame {self.frame_counter}, Index {sequence_index}, is_open={is_open}, sequence_len={len(self.gesture_sequence)}")
         
         # Simulate movement towards actual piece positions for testing
         # Target board position (1, 0) which should have a red piece

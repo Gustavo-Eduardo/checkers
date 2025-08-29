@@ -38,7 +38,7 @@ class SimpleHandTracker:
         # State tracking for hysteresis and stability
         self.current_state = True  # Start with open hand
         self.state_history = []
-        self.stability_frames = 8  # Require 8 consecutive frames for state change
+        self.stability_frames = 4  # Require only 4 consecutive frames for faster response
         
         # Hysteresis thresholds for area ratio
         # Lower ratio = more closed (fingers inside hull)
@@ -143,7 +143,7 @@ class SimpleHandTracker:
         )
         
         # LOG: Report detected gesture with state
-        logger.info(f"HAND_DETECTION: Gesture detected - "
+        logger.debug(f"HAND_DETECTION: Gesture detected - "
                    f"State: {'OPEN' if is_open else 'CLOSED'}, "
                    f"Extended fingers: {extended_fingers}, "
                    f"Position: ({normalized_position[0]:.2f}, {normalized_position[1]:.2f}), "
@@ -276,7 +276,7 @@ class SimpleHandTracker:
             }
             
         except Exception as e:
-            logger.warning(f"Finger extension detection failed: {e}")
+            logger.debug(f"Finger extension detection failed: {e}")
             return {'extended_count': -1, 'distances': {}, 'extended_fingers': []}
     
     def _is_thumb_extended(self, landmarks: list, wrist: np.ndarray) -> tuple:
@@ -313,7 +313,7 @@ class SimpleHandTracker:
             
             return (is_extended, tip_to_palm)
         except Exception as e:
-            logger.warning(f"Thumb extension detection error: {e}")
+            logger.debug(f"Thumb extension detection error: {e}")
             return (False, 0.0)
     
     def _is_finger_extended(self, landmarks: list, indices: list, palm_center: np.ndarray, finger_name: str) -> tuple:
@@ -359,7 +359,7 @@ class SimpleHandTracker:
             
             return (is_extended, tip_to_palm)
         except Exception as e:
-            logger.warning(f"{finger_name} extension detection error: {e}")
+            logger.debug(f"{finger_name} extension detection error: {e}")
             return (False, 0.0)
     
     def _update_hand_state_v2(self, is_open_detected: bool, extended_fingers: int) -> bool:
@@ -391,11 +391,10 @@ class SimpleHandTracker:
             # Apply hysteresis - require stronger evidence to change state
             confidence_ratio = max(open_votes, closed_votes) / stability_threshold
             
-            if desired_state != self.current_state and confidence_ratio >= 0.7:
-                logger.warning(f"HAND_STATE_CHANGE: {'OPEN' if self.current_state else 'CLOSED'} -> "
+            if desired_state != self.current_state and confidence_ratio >= 0.6:  # 60% instead of 70% for faster response
+                logger.info(f"HAND_TRACKER: Hand state transition: {'OPEN' if self.current_state else 'CLOSED'} -> "
                              f"{'OPEN' if desired_state else 'CLOSED'} "
-                             f"(fingers: {extended_fingers}, confidence: {confidence_ratio:.2f}) "
-                             f"*** THIS IS A GESTURE TRANSITION ***")
+                             f"(fingers: {extended_fingers}, confidence: {confidence_ratio:.2f})")
                 self.current_state = desired_state
                 # Clear history after state change
                 self.state_history = []

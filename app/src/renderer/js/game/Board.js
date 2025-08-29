@@ -123,14 +123,23 @@ class CheckersBoard {
   }
 
   render(gameState) {
-    if (!gameState) return;
+    // Update game state if provided
+    if (gameState) {
+      this.currentGameState = gameState;
+    }
     
-    this.currentGameState = gameState;
+    // Always clear and draw board, even without game state
     this.clearCanvas();
     this.drawBoard();
     this.drawValidMoves();
     this.drawHover();
-    this.drawPieces(gameState.board);
+    
+    // Only draw pieces if we have game state
+    if (this.currentGameState && this.currentGameState.board) {
+      this.drawPieces(this.currentGameState.board);
+    }
+    
+    // Always draw selection (this enables yellow border without game state)
     this.drawSelection();
   }
 
@@ -285,6 +294,7 @@ class CheckersBoard {
 
   drawSelection() {
     if (this.selectedPiece) {
+      console.warn(`FRONTEND: *** DRAWING SELECTION *** Position: ${this.selectedPiece}, SquareSize: ${this.squareSize}`);
       const [row, col] = this.selectedPiece;
       const x = col * this.squareSize;
       const y = row * this.squareSize;
@@ -299,6 +309,9 @@ class CheckersBoard {
       this.ctx.lineDashOffset = time * 20;
       this.ctx.strokeRect(x + 2, y + 2, this.squareSize - 4, this.squareSize - 4);
       this.ctx.setLineDash([]);
+      console.warn(`FRONTEND: Selection border drawn at (${x}, ${y}) with size ${this.squareSize - 4}`);
+    } else {
+      console.warn(`FRONTEND: *** NO SELECTION TO DRAW *** selectedPiece is null`);
     }
   }
 
@@ -311,7 +324,9 @@ class CheckersBoard {
     console.warn(`FRONTEND: *** BOARD.updateSelection *** Position: ${position}, Valid moves: ${validMoves?.length || 0}, Previous selection: ${this.selectedPiece}`);
     this.selectedPiece = position;
     this.validMoves = validMoves;
-    this.render(this.currentGameState);
+    
+    // Always trigger a render - the render method now handles missing game state
+    this.render();
     console.warn(`FRONTEND: Board selection updated - selectedPiece now: ${this.selectedPiece}`);
   }
 
@@ -319,7 +334,9 @@ class CheckersBoard {
     console.warn(`FRONTEND: *** BOARD.clearSelection *** Clearing selection - was: ${this.selectedPiece}`);
     this.selectedPiece = null;
     this.validMoves = [];
-    this.render(this.currentGameState);
+    
+    // Always trigger a render - the render method now handles missing game state
+    this.render();
   }
 
   setMouseMode(enabled) {

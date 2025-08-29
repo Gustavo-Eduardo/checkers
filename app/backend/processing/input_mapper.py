@@ -20,6 +20,8 @@ class InputMapper:
         self.selected_piece = None
         self.hover_position = None
         self.click_position = None  # Track where hand was closed for release handling
+        self.last_valid_position = None  # Track last valid board position during drag
+        self.drag_start_position = None  # Track start position of drag for moves
         self.last_action_time = 0
         self.action_cooldown = 0.2  # Faster response for binary gestures
         self.hover_history = []  # Store recent hover positions for stability
@@ -42,14 +44,14 @@ class InputMapper:
     def map_gesture_to_action(self, gesture, screen_dimensions: Tuple[int, int]) -> Optional[Dict]:
         """Convert gesture to game action replicating exact mouse behavior"""
         
-        logger.info(f"INPUT_MAPPER: Processing gesture - Type: {type(gesture).__name__}")
+        logger.debug(f"INPUT_MAPPER: Processing gesture - Type: {type(gesture).__name__}")
         
         try:
             # Check if using new SimpleHandGesture
             if hasattr(gesture, 'is_open'):
                 # New simple binary detection
                 hand_closed = not gesture.is_open  # is_open=False means hand is closed (grabbing)
-                logger.info(f"INPUT_MAPPER: Simple binary gesture - "
+                logger.debug(f"INPUT_MAPPER: Simple binary gesture - "
                           f"is_open={gesture.is_open}, hand_closed={hand_closed}")
             elif hasattr(gesture, 'finger_count') and gesture.finger_count is not None:
                 # Legacy finger count detection
@@ -57,11 +59,11 @@ class InputMapper:
                 if hasattr(finger_count, 'item'):  # numpy scalar
                     finger_count = finger_count.item()
                 hand_closed = int(finger_count) == 0  # Only fully closed fist = closed, any fingers = open
-                logger.info(f"INPUT_MAPPER: Legacy finger count - {finger_count} fingers -> {'closed' if hand_closed else 'open'}")
+                logger.debug(f"INPUT_MAPPER: Legacy finger count - {finger_count} fingers -> {'closed' if hand_closed else 'open'}")
             else:
                 # Fallback to gesture type analysis
                 hand_closed = gesture.gesture_type == 'grab'
-                logger.info(f"INPUT_MAPPER: Fallback gesture type - {gesture.gesture_type} -> {'closed' if hand_closed else 'open'}")
+                logger.debug(f"INPUT_MAPPER: Fallback gesture type - {gesture.gesture_type} -> {'closed' if hand_closed else 'open'}")
         except Exception as e:
             logger.error(f"INPUT_MAPPER: Error determining hand state: {e}")
             # Safe fallback - assume open hand
@@ -71,10 +73,10 @@ class InputMapper:
         hand_state_changed = self._update_hand_state(hand_closed)
         
         # Map hand position to board coordinates
-        logger.info(f"INPUT_MAPPER: Gesture position: {gesture.position}, Screen dimensions: {screen_dimensions}")
+        logger.debug(f"INPUT_MAPPER: Gesture position: {gesture.position}, Screen dimensions: {screen_dimensions}")
         board_pos = self._screen_to_board_coords(gesture.position, screen_dimensions)
         
-        logger.info(f"INPUT_MAPPER: State tracking - "
+        logger.debug(f"INPUT_MAPPER: State tracking - "
                    f"current_closed={self.is_hand_closed}, "
                    f"was_grabbing={self.was_grabbing}, "
                    f"state_changed={hand_state_changed}, "
@@ -100,11 +102,13 @@ class InputMapper:
                 # If no piece selected, select piece at position
                 # If piece selected, this starts a potential move (handled on release)
                 if board_pos:
-                    logger.warning(f"INPUT_MAPPER: *** GRAB GESTURE DETECTED *** Hand closed at {board_pos}")
+                    logger.info(f"INPUT_MAPPER: GRAB GESTURE - Hand closed at {board_pos}")
                     self.last_action_time = current_time
                     
-                    # Store click position for release handling
+                    # Store positions for proper move handling
                     self.click_position = board_pos
+                    self.drag_start_position = board_pos
+                    self.last_valid_position = board_pos
                     
                     # If no piece currently selected, select piece immediately 
                     if not self.selected_piece:
@@ -113,21 +117,26 @@ class InputMapper:
                             'position': board_pos,
                             'confidence': gesture.confidence
                         }
-                        logger.warning(f"INPUT_MAPPER: *** GENERATING SELECT_PIECE ACTION *** {action}")
+                        logger.info(f"INPUT_MAPPER: SELECT_PIECE action generated: {action}")
                         return action
                     # If piece is already selected, we're starting a move - handle on release
                     else:
-                        logger.info(f"INPUT_MAPPER: Piece already selected {self.selected_piece}, waiting for release")
+                        logger.debug(f"INPUT_MAPPER: Piece already selected {self.selected_piece}, waiting for release")
                     
             elif not self.is_hand_closed and self.was_grabbing:
                 # GRABBED→OPEN: Equivalent to mouse release
-                # Replicate exact mouse click logic from Board.js handleMouseClick():
-                release_pos = board_pos or self.click_position  # Use click position if release outside board
+                # Use current position if valid, otherwise use last valid position during drag
+                if board_pos:
+                    release_pos = board_pos
+                    self.last_valid_position = board_pos
+                else:
+                    # Hand moved outside board - use last valid position during drag
+                    release_pos = self.last_valid_position or self.click_position
                 
                 if not self.selected_piece:
                     # No piece was selected - just select piece at release position
                     if release_pos:
-                        logger.info(f"GESTURE SELECT: Selecting piece at {release_pos}")
+                        logger.info(f"INPUT_MAPPER: Selecting piece at {release_pos}")
                         self.last_action_time = current_time
                         return {
                             'type': GameAction.SELECT_PIECE.value, 
@@ -139,11 +148,11 @@ class InputMapper:
                     if release_pos:
                         if release_pos == self.selected_piece:
                             # Released on same piece - keep selected (like mouse)
-                            logger.info(f"GESTURE HOLD: Maintaining selection of {self.selected_piece}")
+                            logger.debug(f"INPUT_MAPPER: Maintaining selection of {self.selected_piece}")
                             return None
                         else:
                             # Released on different square - attempt move or reselect
-                            logger.info(f"GESTURE RELEASE: Move from {self.selected_piece} to {release_pos}")
+                            logger.info(f"INPUT_MAPPER: Move attempt from {self.selected_piece} to {release_pos}")
                             action = {
                                 'type': GameAction.MOVE_PIECE.value,
                                 'from': self.selected_piece,
@@ -156,7 +165,7 @@ class InputMapper:
                             return action
                     else:
                         # Released outside board - cancel selection
-                        logger.info(f"GESTURE CANCEL: Released outside board, deselecting {self.selected_piece}")
+                        logger.info(f"INPUT_MAPPER: Released outside board, cancelled selection of {self.selected_piece}")
                         self.selected_piece = None
                         self.last_action_time = current_time
                         return {
@@ -164,8 +173,12 @@ class InputMapper:
                             'confidence': gesture.confidence
                         }
         
+        # Continuous position tracking for drag support
+        if board_pos:
+            self.last_valid_position = board_pos
+        
         # Continuous hover feedback (replicating mouse movement)
-        # Only when hand is open (not dragging) - just like mouse hover
+        # Only send hover events when hand is open (not dragging) - just like mouse hover
         if not self.is_hand_closed:
             stable_pos = self._get_stable_hover_position(board_pos)
             if stable_pos and stable_pos != self.hover_position:
@@ -204,12 +217,12 @@ class InputMapper:
         
         # Only change state if we have a strong majority
         if stable_closed and not self.is_hand_closed:
-            logger.warning(f"INPUT_MAPPER: *** HAND STATE CHANGE *** open -> closed (confirmed: {closed_count}/{self.gesture_stability_threshold} frames)")
+            logger.info(f"INPUT_MAPPER: Hand state change: open -> closed (confirmed: {closed_count}/{self.gesture_stability_threshold} frames)")
             self.was_grabbing = self.is_hand_closed
             self.is_hand_closed = True
             return True
         elif stable_open and self.is_hand_closed:
-            logger.warning(f"INPUT_MAPPER: *** HAND STATE CHANGE *** closed -> open (confirmed: {open_count}/{self.gesture_stability_threshold} frames)")
+            logger.info(f"INPUT_MAPPER: Hand state change: closed -> open (confirmed: {open_count}/{self.gesture_stability_threshold} frames)")
             self.was_grabbing = self.is_hand_closed
             self.is_hand_closed = False
             return True
@@ -256,7 +269,7 @@ class InputMapper:
         x = norm_x * width
         y = norm_y * height
         
-        logger.info(f"INPUT_MAPPER: _screen_to_board_coords - Normalized: ({norm_x:.3f}, {norm_y:.3f}) -> Pixels: ({x:.1f}, {y:.1f}), Screen: ({width}, {height})")
+        logger.debug(f"INPUT_MAPPER: _screen_to_board_coords - Normalized: ({norm_x:.3f}, {norm_y:.3f}) -> Pixels: ({x:.1f}, {y:.1f}), Screen: ({width}, {height})")
         
         # Define board area - matches Board.js logic exactly (lines 34-35)
         # The board uses the full canvas size, not 80% of it
@@ -264,12 +277,12 @@ class InputMapper:
         board_x_offset = (width - board_size_pixels) / 2
         board_y_offset = (height - board_size_pixels) / 2
         
-        logger.info(f"INPUT_MAPPER: Board area - size:{board_size_pixels:.1f}px, x_offset:{board_x_offset:.1f}, y_offset:{board_y_offset:.1f}")
+        logger.debug(f"INPUT_MAPPER: Board area - size:{board_size_pixels:.1f}px, x_offset:{board_x_offset:.1f}, y_offset:{board_y_offset:.1f}")
         
         # Check if position is within board area
         if (x < board_x_offset or x > board_x_offset + board_size_pixels or
             y < board_y_offset or y > board_y_offset + board_size_pixels):
-            logger.info(f"INPUT_MAPPER: Position outside board area - "
+            logger.debug(f"INPUT_MAPPER: Position outside board area - "
                        f"x:{x:.1f} not in [{board_x_offset:.1f}, {board_x_offset + board_size_pixels:.1f}], "
                        f"y:{y:.1f} not in [{board_y_offset:.1f}, {board_y_offset + board_size_pixels:.1f}]")
             return None
@@ -278,13 +291,13 @@ class InputMapper:
         board_x = int((x - board_x_offset) / board_size_pixels * self.board_size)
         board_y = int((y - board_y_offset) / board_size_pixels * self.board_size)
         
-        logger.info(f"INPUT_MAPPER: Calculated board coords - board_x:{board_x}, board_y:{board_y}")
+        logger.debug(f"INPUT_MAPPER: Calculated board coords - board_x:{board_x}, board_y:{board_y}")
         
         # Validate bounds
         if 0 <= board_x < self.board_size and 0 <= board_y < self.board_size:
             result = (board_y, board_x)  # Return as (row, col)
-            logger.warning(f"INPUT_MAPPER: *** VALID BOARD POSITION *** {result}")
+            logger.debug(f"INPUT_MAPPER: Valid board position: {result}")
             return result
         
-        logger.info(f"INPUT_MAPPER: Board coords out of bounds - board_x:{board_x}, board_y:{board_y}")
+        logger.debug(f"INPUT_MAPPER: Board coords out of bounds - board_x:{board_x}, board_y:{board_y}")
         return None
