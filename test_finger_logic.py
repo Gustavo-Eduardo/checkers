@@ -28,7 +28,7 @@ def create_mock_open_hand_landmarks():
         (150, 190),  # 9: MIDDLE_MCP (palm center reference)
         (150, 150),  # 10: MIDDLE_PIP
         (150, 120),  # 11: MIDDLE_DIP
-        (150, 90),   # 12: MIDDLE_TIP (extended)
+        (150, 90),   # 12: MIDDLE_TIP (extend   ed)
         (170, 190),  # 13: RING_MCP
         (170, 160),  # 14: RING_PIP
         (170, 130),  # 15: RING_DIP
@@ -97,8 +97,6 @@ def create_mock_two_fingers_landmarks():
 
 # Mock the SimpleHandTracker methods for testing
 class MockHandTracker:
-    def __init__(self):
-        pass
         
     def _is_thumb_extended(self, landmarks: list, wrist: np.ndarray) -> tuple:
         """Check if thumb is extended - special case due to different orientation"""
