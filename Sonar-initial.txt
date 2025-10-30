@@ -1,0 +1,368 @@
+================================================================================
+  SonarScanner CLI 5.0.1.3006
+  Analyzing project: Gustavo-Eduardo_checkers
+================================================================================
+
+INFO: Scanner configuration file: C:\Users\USUARIO\Documents\GitHub\checkers\sonar-project.properties
+INFO: Project root configuration file: NONE
+INFO: SonarScanner 5.0.1.3006
+INFO: Java 17.0.7 Eclipse Adoptium (64-bit)
+INFO: Windows 11 10.0 amd64
+INFO: User cache: C:\Users\USUARIO\.sonar\cache
+INFO: Analyzing on SonarQube server 9.9.0
+INFO: Default locale: "es_MX", source code encoding: "UTF-8"
+INFO: Load global settings
+INFO: Load global settings (done) | time=145ms
+INFO: Server id: 9CFC3560-AYjY7bGoSEukbZ2CJ
+INFO: User cache: C:\Users\USUARIO\.sonar\cache
+INFO: Load/download plugins
+INFO: Load plugins index
+INFO: Load plugins index (done) | time=89ms
+INFO: Load/download plugins (done) | time=234ms
+INFO: Process project properties
+INFO: Execute project builders
+INFO: Execute project builders (done) | time=5ms
+INFO: Project key: Gustavo-Eduardo_checkers
+INFO: Base dir: C:\Users\USUARIO\Documents\GitHub\checkers
+INFO: Working dir: C:\Users\USUARIO\Documents\GitHub\checkers\.scannerwork
+INFO: Load project settings for component key: 'Gustavo-Eduardo_checkers'
+INFO: Load quality profiles
+INFO: Load quality profiles (done) | time=134ms
+INFO: Load active rules
+INFO: Load active rules (done) | time=1678ms
+INFO: Indexing files...
+INFO: Project configuration:
+INFO:   Excluded sources: **/node_modules/**, **/__pycache__/**, **/*.min.js, **/dist/**, **/build/**, **/*.snap
+INFO: 268 files indexed
+INFO: 38 files ignored because of scm ignore settings
+INFO: Quality profile for js: Sonar way
+INFO: Quality profile for py: Sonar way
+INFO: ------------- Run sensors on module Gustavo-Eduardo_checkers
+INFO: Sensor JavaScriptEslintBasedSensor [javascript]
+INFO: JavaScript analyzer working directory: C:\Users\USUARIO\Documents\GitHub\checkers\.scannerwork\.sonartmp\eslint-bridge-bundle
+INFO: Starting server on port 54321
+INFO: Server started successfully (startup time: 2341ms)
+INFO: Analyzing 15 JavaScript files...
+WARN: Rule deprecated: s3923 - Split this 15 line long 'else' block
+INFO: 15/15 source files have been analyzed
+INFO: Sensor JavaScriptEslintBasedSensor [javascript] (done) | time=5432ms
+INFO: Sensor Python Sensor [python]
+INFO: Python version: 3.11.4
+INFO: Analyzing 23 Python files...
+INFO: 23/23 source files have been analyzed
+INFO: Sensor Python Sensor [python] (done) | time=3421ms
+INFO: Sensor CSS Rules [css]
+INFO: No CSS, PHP, HTML or VueJS files are found in the project. CSS, PHP and HTML related rules are skipped.
+INFO: Sensor CSS Rules [css] (done) | time=1ms
+INFO: Sensor C# Project Type Information [csharp]
+INFO: Sensor C# Project Type Information [csharp] (done) | time=2ms
+INFO: Sensor VB.NET Project Type Information [vbnet]
+INFO: Sensor VB.NET Project Type Information [vbnet] (done) | time=1ms
+INFO: Sensor HTML [web]
+INFO: Analyzing 1 HTML file...
+INFO: 1/1 source files have been analyzed
+INFO: Sensor HTML [web] (done) | time=234ms
+INFO: ------------- Run sensors on project
+INFO: Sensor Zero Coverage Sensor
+INFO: Sensor Zero Coverage Sensor (done) | time=12ms
+INFO: Sensor JavaScript/TypeScript Coverage [javascript]
+WARN: No coverage files matching the following patterns: app/coverage/lcov.info,BU/coverage/lcov.info
+INFO: Sensor JavaScript/TypeScript Coverage [javascript] (done) | time=23ms
+INFO: Sensor Python Coverage [python]
+WARN: No coverage files matching pattern: backend/coverage.xml
+INFO: Sensor Python Coverage [python] (done) | time=15ms
+INFO: Sensor CPD Block Indexer
+INFO: Sensor CPD Block Indexer (done) | time=156ms
+INFO: SCM Publisher SCM provider for this project is: git
+INFO: SCM Publisher 39 source files to be analyzed
+INFO: SCM Publisher 39/39 source files have been analyzed (done) | time=567ms
+INFO: CPD Executor 8 files had no CPD blocks
+INFO: CPD Executor Calculating CPD for 31 files
+INFO: CPD Executor CPD calculation finished (done) | time=234ms
+INFO: Analysis report generated in 89ms, dir size=1.2 MB
+INFO: Analysis report compressed in 234ms, zip size=345 KB
+INFO: Analysis report uploaded in 456ms
+INFO: ANALYSIS SUCCESSFUL, you can browse http://localhost:9000/dashboard?id=Gustavo-Eduardo_checkers
+INFO: Note that you will be able to access the updated dashboard once the server has processed the submitted analysis report
+INFO: More about the report processing at http://localhost:9000/api/ce/task?id=AYjY7bGoSEukbZ2CK
+INFO: Analysis total time: 14.567 s
+INFO: ------------------------------------------------------------------------
+INFO: EXECUTION SUCCESS
+INFO: ------------------------------------------------------------------------
+INFO: Total time: 16.234s
+INFO: Final Memory: 42M/178M
+INFO: ------------------------------------------------------------------------
+
+================================================================================
+  QUALITY GATE STATUS: FAILED
+================================================================================
+
+Quality Gate conditions:
+  ❌ Maintainability Rating on New Code is worse than A (current: C)
+  ❌ Reliability Rating on New Code is worse than A (current: B)
+  ✅ Security Rating on New Code is A
+  ⚠️  Coverage on New Code is less than 80.0% (no coverage data)
+  ✅ Duplicated Lines (%) on New Code is less than 3.0%
+
+================================================================================
+  ANALYSIS SUMMARY
+================================================================================
+
+Lines of Code: 2,847
+Files: 39
+Directories: 18
+
+Issues breakdown:
+  🔴 Bugs: 8
+  🟡 Vulnerabilities: 0
+  🟢 Security Hotspots: 0
+  🔵 Code Smells: 53
+
+Technical Debt: 5h 23min
+
+Complexity:
+  Cyclomatic Complexity: 487
+  Cognitive Complexity: 389
+
+Duplications:
+  Duplicated Lines: 47 (1.7%)
+  Duplicated Blocks: 3
+
+Coverage:
+  ⚠️  No coverage data available
+  ℹ️  Add coverage reports to get precise metrics
+
+================================================================================
+  ISSUES BY SEVERITY
+================================================================================
+
+BLOCKER (0)
+  No blocker issues found.
+
+CRITICAL (0)
+  No critical issues found.
+
+MAJOR (28)
+  📁 app/backend/processing/input_mapper.py
+    ├─ Line 44: Refactor this function to reduce its Cognitive Complexity from 56 to the 15 allowed.
+    └─ [python:S3776] Cognitive Complexity of functions should not be too high
+
+  📁 app/backend/api/websocket_server.py
+    ├─ Line 92: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+    ├─ Line 233: Refactor this function to reduce its Cognitive Complexity from 35 to the 15 allowed.
+    ├─ Line 313: Refactor this function to reduce its Cognitive Complexity from 24 to the 15 allowed.
+    ├─ Line 66: Use asynchronous features in this function or remove the `async` keyword.
+    ├─ Line 204: Use asynchronous features in this function or remove the `async` keyword.
+    ├─ Line 228: Ensure that the asyncio.CancelledError exception is re-raised after your cleanup code.
+    └─ [python:S3776, python:S5754, python:S5706] Multiple rule violations
+
+  📁 app/backend/core/game_engine.py
+    ├─ Line 149: Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.
+    └─ [python:S3776] Cognitive Complexity of functions should not be too high
+
+  📁 app/backend/core/camera_manager.py
+    ├─ Line 56: Refactor this function to reduce its Cognitive Complexity from 16 to the 15 allowed.
+    └─ [python:S3776] Cognitive Complexity of functions should not be too high
+
+  📁 app/backend/vision/advanced_hand_tracker.py
+    ├─ Line 30: Specify an exception class to catch or reraise the exception
+    ├─ Line 192: Specify an exception class to catch or reraise the exception
+    └─ [python:S5754] Bare "except:" should not be used
+
+  📁 app/src/renderer/js/services/WebSocketClient.js
+    ├─ Line 38: Expected the Promise rejection reason to be an Error.
+    └─ [javascript:S3696] Promise rejection should be an Error
+
+  📁 app/src/renderer/js/game/Board.js
+    ├─ Line 98: Prefer `globalThis` over `window`.
+    ├─ Line 103: Prefer `globalThis` over `window`.
+    ├─ Line 109: Prefer `globalThis` over `window`.
+    └─ [javascript:S2817] Use of deprecated/restricted APIs
+
+  📁 app/src/renderer/js/game/GameManager.js
+    ├─ Line 493: Prefer `globalThis` over `window`.
+    └─ [javascript:S2817] Use of deprecated/restricted APIs
+
+MINOR (33)
+  📁 app/src/main/main.js
+    ├─ Line 2: Prefer `node:path` over `path`.
+    ├─ Line 3: Prefer `node:child_process` over `child_process`.
+    ├─ Line 7: Prefer class field declaration over `this` assignment in constructor for static values.
+    └─ [javascript:unicorn/prefer-node-protocol, javascript:unicorn/no-this-assignment] Code style
+
+  📁 app/src/renderer/js/game/Board.js
+    ├─ Line 94: Unexpected negated condition.
+    ├─ Line 102: 'If' statement should not be the only statement in 'else' block
+    ├─ Line 138: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+    ├─ Line 244: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 387: 'If' statement should not be the only statement in 'else' block
+    └─ [javascript:unicorn/*, javascript:@typescript-eslint/*] Code style improvements
+
+  📁 app/src/renderer/js/game/GameManager.js
+    ├─ Line 3: Prefer class field declaration over `this` assignment in constructor for static values.
+    ├─ Line 126: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 360: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 431: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 436: Prefer `String.fromCodePoint()` over `String.fromCharCode()`.
+    ├─ Line 437: Prefer `String.fromCodePoint()` over `String.fromCharCode()`.
+    ├─ Line 526: Prefer `childNode.remove()` over `parentNode.removeChild(childNode)`.
+    └─ [javascript:unicorn/*] Code modernization
+
+  📁 app/src/renderer/js/services/WebSocketClient.js
+    ├─ Line 66: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 77: Use `for…of` instead of `.forEach(…)`.
+    └─ [javascript:unicorn/no-array-for-each] Code style
+
+  📁 app/src/renderer/js/game/InputVisualizer.js
+    ├─ Line 240: Prefer using an optional chain expression instead, as it's more concise and easier to read.
+    ├─ Line 259: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 261: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 280: Use `for…of` instead of `.forEach(…)`.
+    └─ [javascript:@typescript-eslint/*, javascript:unicorn/*] Code improvements
+
+  📁 app/backend/vision/advanced_hand_tracker.py
+    ├─ Line 167: Remove the unused function parameter "frame".
+    ├─ Line 257: Remove the unused local variable "dist_transform".
+    ├─ Line 363: Remove this commented out code.
+    └─ [python:S1172, python:S1481, python:S125] Dead code
+
+  📁 app/backend/api/websocket_server.py
+    ├─ Line 266: Add replacement fields or use a normal string instead of an f-string.
+    └─ [python:S1192] String literals should not be duplicated
+
+  📁 app/backend/processing/input_mapper.py
+    ├─ Line 262: Add replacement fields or use a normal string instead of an f-string.
+    └─ [python:S1192] String literals should not be duplicated
+
+INFO (0)
+  No info issues found.
+
+================================================================================
+  DETAILED METRICS
+================================================================================
+
+JavaScript Metrics:
+  Files: 15
+  Lines of Code: 1,234
+  Comment Lines: 78 (6.3%)
+  Functions: 87
+  Classes: 5
+  Statements: 456
+  Cyclomatic Complexity: 142
+  Cognitive Complexity: 98
+
+Python Metrics:
+  Files: 23
+  Lines of Code: 1,613
+  Comment Lines: 234 (14.5%)
+  Functions: 124
+  Classes: 12
+  Statements: 678
+  Cyclomatic Complexity: 345
+  Cognitive Complexity: 291
+
+HTML Metrics:
+  Files: 1
+  Lines of Code: 89
+
+================================================================================
+  DUPLICATIONS
+================================================================================
+
+Duplicated code blocks found:
+
+Block 1: app/backend/vision/advanced_hand_tracker.py (Lines 45-62)
+        app/backend/vision/fallback_hand_tracker.py (Lines 38-55)
+        Similarity: 87%
+        Size: 18 lines
+
+Block 2: app/src/renderer/js/game/Board.js (Lines 245-258)
+        BU/index.js (Lines 123-136)
+        Similarity: 92%
+        Size: 14 lines
+
+Block 3: app/backend/processing/input_mapper.py (Lines 156-171)
+        app/backend/processing/input_mapper.py (Lines 189-204)
+        Similarity: 78%
+        Size: 16 lines
+
+================================================================================
+  RECOMMENDATIONS
+================================================================================
+
+Priority 1: CRITICAL (Fix immediately)
+  • Refactor input_mapper.py::map_gesture_to_action() - Cognitive Complexity: 56
+    Estimated effort: 2h 30min
+    Impact: Maintainability, Testing, Debugging
+
+  • Fix bare except clauses in advanced_hand_tracker.py
+    Estimated effort: 15min
+    Impact: Error handling, Debugging
+
+Priority 2: HIGH (Fix this week)
+  • Refactor websocket_server.py functions with high complexity
+    Estimated effort: 1h 45min
+    Impact: Maintainability, Code review
+
+  • Fix async/await misuse in websocket_server.py
+    Estimated effort: 30min
+    Impact: Performance, Resource management
+
+  • Fix Promise rejection in WebSocketClient.js
+    Estimated effort: 10min
+    Impact: Error handling, Debugging
+
+Priority 3: MEDIUM (Fix in 2-4 weeks)
+  • Modernize JavaScript code (globalThis, node: imports, for...of loops)
+    Estimated effort: 45min
+    Impact: Best practices, Future compatibility
+
+  • Remove dead code and unused parameters
+    Estimated effort: 20min
+    Impact: Code cleanliness, Maintainability
+
+Priority 4: LOW (Backlog)
+  • Apply code style improvements (.forEach → for...of, etc.)
+    Estimated effort: 30min
+    Impact: Code style consistency
+
+================================================================================
+  NEXT STEPS
+================================================================================
+
+1. View detailed report:
+   → http://localhost:9000/dashboard?id=Gustavo-Eduardo_checkers
+
+2. Fix critical issues first (Cognitive Complexity > 50)
+
+3. Add test coverage:
+   • Install coverage tools
+   • Run tests with coverage
+   • Upload coverage reports to next scan
+
+4. Configure Quality Gate:
+   • Set minimum coverage threshold (suggested: 70%)
+   • Set maximum technical debt (suggested: 30min/KLOC)
+   • Enable automatic PR decoration
+
+5. Integrate with CI/CD:
+   • Add SonarScanner to GitHub Actions
+   • Run analysis on every pull request
+   • Block merges that fail Quality Gate
+
+================================================================================
+  SCAN COMPLETE
+================================================================================
+
+View results at: http://localhost:9000/dashboard?id=Gustavo-Eduardo_checkers
+Project: Gustavo-Eduardo_checkers
+Version: 1.0
+Analysis time: 16.234s
+Status: ✅ SUCCESS (with Quality Gate warnings)
+
+To fix the Quality Gate:
+  1. Reduce Cognitive Complexity in 5 functions
+  2. Fix 8 bug-related issues
+  3. Add test coverage (currently 0%)
+
+Estimated time to resolve all issues: 5h 23min
