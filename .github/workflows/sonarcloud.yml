@@ -1,0 +1,62 @@
+name: SonarCloud Analysis
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  sonarcloud:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better analysis
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest coverage
+          if [ -f app/backend/requirements.txt ]; then pip install -r app/backend/requirements.txt; fi
+      
+      - name: Run Python tests with coverage
+        continue-on-error: true
+        run: |
+          coverage run -m pytest || echo "No tests found or tests failed"
+          coverage xml -o coverage.xml
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install Node.js dependencies
+        run: |
+          cd app
+          npm install
+      
+      - name: Run JavaScript tests with coverage (if configured)
+        continue-on-error: true
+        run: |
+          cd app
+          npm test -- --coverage || echo "No tests configured"
+      
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=gustavo-eduardo
+            -Dsonar.projectKey=Gustavo-Eduardo_checkers
