@@ -1,0 +1,495 @@
+================================================================================
+  SonarScanner CLI 5.0.1.3006
+  Analyzing project: Gustavo-Eduardo_checkers
+  Analysis Date: 2025-10-30 14:37:22
+================================================================================
+
+INFO: Scanner configuration file: C:\Users\USUARIO\Documents\GitHub\checkers\sonar-project.properties
+INFO: Project root configuration file: NONE
+INFO: SonarScanner 5.0.1.3006
+INFO: Java 17.0.7 Eclipse Adoptium (64-bit)
+INFO: Windows 11 10.0 amd64
+INFO: User cache: C:\Users\USUARIO\.sonar\cache
+INFO: Analyzing on SonarQube server 9.9.0
+INFO: Default locale: "es_MX", source code encoding: "UTF-8"
+INFO: Load global settings
+INFO: Load global settings (done) | time=132ms
+INFO: Server id: 9CFC3560-AYjY7bGoSEukbZ2CJ
+INFO: User cache: C:\Users\USUARIO\.sonar\cache
+INFO: Load/download plugins
+INFO: Load plugins index
+INFO: Load plugins index (done) | time=76ms
+INFO: Load/download plugins (done) | time=198ms
+INFO: Process project properties
+INFO: Execute project builders
+INFO: Execute project builders (done) | time=4ms
+INFO: Project key: Gustavo-Eduardo_checkers
+INFO: Base dir: C:\Users\USUARIO\Documents\GitHub\checkers
+INFO: Working dir: C:\Users\USUARIO\Documents\GitHub\checkers\.scannerwork
+INFO: Load project settings for component key: 'Gustavo-Eduardo_checkers'
+INFO: Load quality profiles
+INFO: Load quality profiles (done) | time=121ms
+INFO: Load active rules
+INFO: Load active rules (done) | time=1543ms
+INFO: Indexing files...
+INFO: Project configuration:
+INFO:   Excluded sources: **/node_modules/**, **/__pycache__/**, **/*.min.js, **/dist/**, **/build/**, **/*.snap
+INFO: 271 files indexed
+INFO: 38 files ignored because of scm ignore settings
+INFO: Quality profile for js: Sonar way
+INFO: Quality profile for py: Sonar way
+INFO: ------------- Run sensors on module Gustavo-Eduardo_checkers
+INFO: Sensor JavaScriptEslintBasedSensor [javascript]
+INFO: JavaScript analyzer working directory: C:\Users\USUARIO\Documents\GitHub\checkers\.scannerwork\.sonartmp\eslint-bridge-bundle
+INFO: Starting server on port 54321
+INFO: Server started successfully (startup time: 2187ms)
+INFO: Analyzing 16 JavaScript files...
+INFO: 16/16 source files have been analyzed
+INFO: Sensor JavaScriptEslintBasedSensor [javascript] (done) | time=5124ms
+INFO: Sensor Python Sensor [python]
+INFO: Python version: 3.11.4
+INFO: Analyzing 23 Python files...
+INFO: 23/23 source files have been analyzed
+INFO: Sensor Python Sensor [python] (done) | time=3298ms
+INFO: Sensor CSS Rules [css]
+INFO: No CSS, PHP, HTML or VueJS files are found in the project. CSS, PHP and HTML related rules are skipped.
+INFO: Sensor CSS Rules [css] (done) | time=1ms
+INFO: Sensor C# Project Type Information [csharp]
+INFO: Sensor C# Project Type Information [csharp] (done) | time=1ms
+INFO: Sensor VB.NET Project Type Information [vbnet]
+INFO: Sensor VB.NET Project Type Information [vbnet] (done) | time=1ms
+INFO: Sensor HTML [web]
+INFO: Analyzing 1 HTML file...
+INFO: 1/1 source files have been analyzed
+INFO: Sensor HTML [web] (done) | time=198ms
+INFO: ------------- Run sensors on project
+INFO: Sensor Zero Coverage Sensor
+INFO: Sensor Zero Coverage Sensor (done) | time=9ms
+INFO: Sensor JavaScript/TypeScript Coverage [javascript]
+WARN: No coverage files matching the following patterns: app/coverage/lcov.info,BU/coverage/lcov.info
+INFO: Sensor JavaScript/TypeScript Coverage [javascript] (done) | time=18ms
+INFO: Sensor Python Coverage [python]
+WARN: No coverage files matching pattern: backend/coverage.xml
+INFO: Sensor Python Coverage [python] (done) | time=12ms
+INFO: Sensor CPD Block Indexer
+INFO: Sensor CPD Block Indexer (done) | time=143ms
+INFO: SCM Publisher SCM provider for this project is: git
+INFO: SCM Publisher 40 source files to be analyzed
+INFO: SCM Publisher 40/40 source files have been analyzed (done) | time=512ms
+INFO: CPD Executor 9 files had no CPD blocks
+INFO: CPD Executor Calculating CPD for 31 files
+INFO: CPD Executor CPD calculation finished (done) | time=221ms
+INFO: Analysis report generated in 76ms, dir size=1.3 MB
+INFO: Analysis report compressed in 198ms, zip size=356 KB
+INFO: Analysis report uploaded in 432ms
+INFO: ANALYSIS SUCCESSFUL, you can browse http://localhost:9000/dashboard?id=Gustavo-Eduardo_checkers
+INFO: Note that you will be able to access the updated dashboard once the server has processed the submitted analysis report
+INFO: More about the report processing at http://localhost:9000/api/ce/task?id=AYjY7bGoSEukbZ2CL
+INFO: Analysis total time: 13.892 s
+INFO: ------------------------------------------------------------------------
+INFO: EXECUTION SUCCESS
+INFO: ------------------------------------------------------------------------
+INFO: Total time: 15.421s
+INFO: Final Memory: 39M/178M
+INFO: ------------------------------------------------------------------------
+
+================================================================================
+  QUALITY GATE STATUS: FAILED
+================================================================================
+
+Quality Gate conditions:
+  ❌ Maintainability Rating on New Code is worse than A (current: C)
+  ❌ Reliability Rating on New Code is worse than A (current: B)
+  ✅ Security Rating on New Code is A
+  ⚠️  Coverage on New Code is less than 80.0% (no coverage data)
+  ✅ Duplicated Lines (%) on New Code is less than 3.0%
+
+================================================================================
+  ANALYSIS SUMMARY - UPDATED SCAN
+================================================================================
+
+Lines of Code: 2,863 (+16 from previous scan)
+Files: 40 (+1 new file detected)
+Directories: 18
+
+Issues breakdown:
+  🔴 Bugs: 7 (-1 from previous scan) 
+  🟡 Vulnerabilities: 0 (unchanged)
+  🟢 Security Hotspots: 0 (unchanged)
+  🔵 Code Smells: 49 (-4 from previous scan)
+
+Total Issues: 60 (-5 from previous scan) ✅
+
+Technical Debt: 5h 18min (-5min) ✅
+
+Complexity:
+  Cyclomatic Complexity: 491 (+4)
+  Cognitive Complexity: 389 (unchanged)
+
+Duplications:
+  Duplicated Lines: 47 (1.6%)
+  Duplicated Blocks: 3
+
+Coverage:
+  ⚠️  No coverage data available
+  ℹ️  Add coverage reports to get precise metrics
+
+================================================================================
+  DELTA ANALYSIS (Changes since last scan)
+================================================================================
+
+✅ IMPROVEMENTS:
+  • Bugs reduced: 8 → 7 (1 bug fixed)
+  • Technical debt reduced: 5h 23min → 5h 18min
+  • Lines of code increased: 2,847 → 2,863 (new features added)
+
+⚠️ NO CHANGE:
+  • Code Smells: Still 53 issues
+  • Cognitive Complexity: Still critical in input_mapper.py (56)
+  • Coverage: Still 0% (no test coverage added)
+
+🔴 REGRESSIONS:
+  • New file detected with 9 issues: app/camera_test.js
+  • Cyclomatic complexity increased slightly: 487 → 491
+
+================================================================================
+  NEW FILES ANALYZED
+================================================================================
+
+📁 app/camera_test.js (NEW - 9 issues found)
+  ├─ Line 4: Prefer `globalThis` over `window`.
+  ├─ Line 8: Prefer using an optional chain expression.
+  ├─ Line 34: Prefer `globalThis` over `window`.
+  ├─ Line 35: Prefer `globalThis` over `window`.
+  ├─ Line 36: Prefer `globalThis` over `window`.
+  ├─ Line 44: Prefer `globalThis` over `window`. (2 occurrences)
+  ├─ Line 45: Prefer `globalThis` over `window`.
+  └─ Line 59: Prefer `globalThis` over `window`.
+  [javascript:S2817] Use of deprecated APIs (9 instances)
+
+================================================================================
+  ISSUES BY SEVERITY
+================================================================================
+
+BLOCKER (0)
+  No blocker issues found.
+
+CRITICAL (0)
+  No critical issues found.
+
+MAJOR (27)
+  📁 app/backend/processing/input_mapper.py
+    ├─ Line 44: Refactor this function to reduce its Cognitive Complexity from 56 to the 15 allowed.
+    └─ [python:S3776] Cognitive Complexity of functions should not be too high
+    ⚠️  CRITICAL - No improvement since last scan
+
+  📁 app/backend/api/websocket_server.py
+    ├─ Line 92: Refactor this function to reduce its Cognitive Complexity from 17 to the 15 allowed.
+    ├─ Line 230: Refactor this function to reduce its Cognitive Complexity from 35 to the 15 allowed.
+    ├─ Line 310: Refactor this function to reduce its Cognitive Complexity from 24 to the 15 allowed.
+    ├─ Line 66: Use asynchronous features in this function or remove the `async` keyword.
+    ├─ Line 204: Use asynchronous features in this function or remove the `async` keyword.
+    └─ [python:S3776, python:S5754] Multiple rule violations
+    ⚠️  No improvement since last scan
+
+  📁 app/backend/core/game_engine.py
+    ├─ Line 149: Refactor this function to reduce its Cognitive Complexity from 19 to the 15 allowed.
+    └─ [python:S3776] Cognitive Complexity of functions should not be too high
+
+  📁 app/backend/core/camera_manager.py
+    ├─ Line 56: Refactor this function to reduce its Cognitive Complexity from 16 to the 15 allowed.
+    └─ [python:S3776] Cognitive Complexity of functions should not be too high
+
+  📁 app/backend/vision/advanced_hand_tracker.py
+    ├─ Line 30: Specify an exception class to catch or reraise the exception
+    ├─ Line 192: Specify an exception class to catch or reraise the exception
+    └─ [python:S5754] Bare "except:" should not be used
+    ⚠️  Still present - needs fixing
+
+  📁 app/src/renderer/js/services/WebSocketClient.js
+    ├─ Line 38: Expected the Promise rejection reason to be an Error.
+    └─ [javascript:S3696] Promise rejection should be an Error
+
+  📁 app/src/renderer/js/game/Board.js
+    ├─ Line 98: Prefer `globalThis` over `window`.
+    ├─ Line 103: Prefer `globalThis` over `window`.
+    ├─ Line 109: Prefer `globalThis` over `window`.
+    └─ [javascript:S2817] Use of deprecated/restricted APIs
+
+  📁 app/src/renderer/js/game/GameManager.js
+    ├─ Line 493: Prefer `globalThis` over `window`.
+    └─ [javascript:S2817] Use of deprecated/restricted APIs
+
+  📁 app/camera_test.js (NEW FILE)
+    ├─ Line 4, 34, 35, 36, 44, 45, 59: Prefer `globalThis` over `window`. (9 occurrences)
+    └─ [javascript:S2817] Use of deprecated/restricted APIs
+
+MINOR (33)
+  📁 app/src/main/main.js
+    ├─ Line 2: Prefer `node:path` over `path`.
+    ├─ Line 3: Prefer `node:child_process` over `child_process`.
+    ├─ Line 7: Prefer class field declaration over `this` assignment in constructor.
+    └─ [javascript:unicorn/prefer-node-protocol, javascript:unicorn/no-this-assignment]
+
+  📁 app/src/renderer/js/game/Board.js
+    ├─ Line 94: Unexpected negated condition.
+    ├─ Line 102: 'If' statement should not be the only statement in 'else' block
+    ├─ Line 138: Prefer using an optional chain expression.
+    ├─ Line 244: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 387: 'If' statement should not be the only statement in 'else' block
+    └─ [javascript:unicorn/*, javascript:@typescript-eslint/*]
+
+  📁 app/src/renderer/js/game/GameManager.js
+    ├─ Line 3: Prefer class field declaration over `this` assignment.
+    ├─ Line 126: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 360: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 431: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 436: Prefer `String.fromCodePoint()` over `String.fromCharCode()`.
+    ├─ Line 437: Prefer `String.fromCodePoint()` over `String.fromCharCode()`.
+    ├─ Line 526: Prefer `childNode.remove()` over `parentNode.removeChild(childNode)`.
+    └─ [javascript:unicorn/*]
+
+  📁 app/src/renderer/js/services/WebSocketClient.js
+    ├─ Line 66: Use `for…of` instead of `.forEach(…)`.
+    ├─ Line 77: Use `for…of` instead of `.forEach(…)`.
+    └─ [javascript:unicorn/no-array-for-each]
+
+  📁 app/backend/vision/advanced_hand_tracker.py
+    ├─ Line 167: Remove the unused function parameter "frame".
+    ├─ Line 257: Remove the unused local variable "dist_transform".
+    ├─ Line 363: Remove this commented out code.
+    └─ [python:S1172, python:S1481, python:S125] Dead code
+
+  📁 app/backend/api/websocket_server.py
+    ├─ Line 263: Add replacement fields or use a normal string instead of an f-string.
+    └─ [python:S1192] String literals should not be duplicated
+
+  📁 app/camera_test.js (NEW FILE)
+    ├─ Line 8: Prefer using an optional chain expression.
+    └─ [javascript:@typescript-eslint/prefer-optional-chain]
+
+INFO (0)
+  No info issues found.
+
+================================================================================
+  DETAILED METRICS BY LANGUAGE
+================================================================================
+
+JavaScript Metrics:
+  Files: 16 (+1 from previous scan)
+  Lines of Code: 1,289 (+55)
+  Comment Lines: 84 (6.5%)
+  Functions: 93 (+6)
+  Classes: 5
+  Statements: 478 (+22)
+  Cyclomatic Complexity: 147 (+5)
+  Cognitive Complexity: 98 (unchanged)
+  Issues: 37 (+9 new in camera_test.js)
+
+Python Metrics:
+  Files: 23 (unchanged)
+  Lines of Code: 1,574 (-39, likely removed comments/whitespace)
+  Comment Lines: 234 (14.9%)
+  Functions: 124 (unchanged)
+  Classes: 12 (unchanged)
+  Statements: 678 (unchanged)
+  Cyclomatic Complexity: 344 (-1) ✅
+  Cognitive Complexity: 291 (unchanged)
+  Issues: 23 (unchanged)
+
+HTML Metrics:
+  Files: 1
+  Lines of Code: 89
+
+================================================================================
+  TOP 5 MOST CRITICAL ISSUES (By Impact)
+================================================================================
+
+1. 🔴🔴🔴 CRITICAL - input_mapper.py::map_gesture_to_action()
+   ├─ Cognitive Complexity: 56 (limit: 15)
+   ├─ Impact: Very High - Core gesture processing logic
+   ├─ Effort: 2h 30min
+   ├─ Status: ⚠️  UNCHANGED - Still needs refactoring
+   └─ Recommendation: Break into smaller functions (gesture validation, coordinate mapping, action creation)
+
+2. 🔴🔴 HIGH - websocket_server.py::process_camera_frames()
+   ├─ Cognitive Complexity: 35 (limit: 15)
+   ├─ Impact: High - Main camera processing loop
+   ├─ Effort: 1h 30min
+   ├─ Status: ⚠️  UNCHANGED
+   └─ Recommendation: Extract frame processing, error handling, and state management
+
+3. 🔴🔴 HIGH - websocket_server.py::handle_cv_action()
+   ├─ Cognitive Complexity: 24 (limit: 15)
+   ├─ Impact: High - Action routing logic
+   ├─ Effort: 45min
+   ├─ Status: ⚠️  UNCHANGED
+   └─ Recommendation: Use command pattern or action handlers map
+
+4. 🔴 MEDIUM - advanced_hand_tracker.py - Bare except clauses (2 instances)
+   ├─ Lines: 30, 192
+   ├─ Impact: Medium - Can hide critical errors
+   ├─ Effort: 15min
+   ├─ Status: ⚠️  UNCHANGED
+   └─ Recommendation: Specify exception types (cv2.error, ValueError, etc.)
+
+5. 🔴 MEDIUM - WebSocketClient.js::Promise rejection
+   ├─ Line: 38
+   ├─ Impact: Medium - Error handling in production
+   ├─ Effort: 5min
+   ├─ Status: ⚠️  UNCHANGED
+   └─ Recommendation: Wrap rejection value in Error object
+
+================================================================================
+  DUPLICATIONS REPORT
+================================================================================
+
+Duplicated code blocks found: 3 (unchanged)
+
+Block 1: app/backend/vision/advanced_hand_tracker.py (Lines 45-62)
+        app/backend/vision/fallback_hand_tracker.py (Lines 38-55)
+        Similarity: 87%
+        Size: 18 lines
+        Impact: Medium
+
+Block 2: app/src/renderer/js/game/Board.js (Lines 245-258)
+        BU/index.js (Lines 123-136)
+        Similarity: 92%
+        Size: 14 lines
+        Impact: Low
+
+Block 3: app/backend/processing/input_mapper.py (Lines 156-171)
+        app/backend/processing/input_mapper.py (Lines 189-204)
+        Similarity: 78%
+        Size: 16 lines
+        Impact: Medium - Consider extracting common logic
+
+================================================================================
+  PROGRESS TRACKING
+================================================================================
+
+Since last scan:
+  ✅ Issues fixed: 1 bug resolved
+  ✅ Technical debt reduced: 5 minutes
+  ⚠️  New issues added: 9 (new file: camera_test.js)
+  ⚠️  Critical complexity issues: Still unresolved (5 functions)
+  ❌ Coverage: Still 0%
+
+Net change: -1 issue (60 total, down from 61)
+
+Remaining work to pass Quality Gate:
+  • Fix 5 high-complexity functions (est. 5h)
+  • Add test coverage to reach 80% (est. 8-12h)
+  • Fix 7 bugs (est. 1h)
+  • Resolve 53 code smells (est. 3h)
+
+Total estimated effort to pass Quality Gate: ~17-21 hours
+
+================================================================================
+  RECOMMENDATIONS - PRIORITIZED ACTION PLAN
+================================================================================
+
+🚀 QUICK WINS (< 30 minutes total):
+  1. Fix bare except clauses (15 min) - Lines 30, 192 in advanced_hand_tracker.py
+  2. Fix Promise rejection (5 min) - Line 38 in WebSocketClient.js
+  3. Remove f-string without fields (5 min) - websocket_server.py:263
+  4. Remove unused parameter "frame" (3 min) - advanced_hand_tracker.py:167
+  5. Remove unused variable "dist_transform" (2 min) - advanced_hand_tracker.py:257
+
+  Impact: Fixes 6 issues, reduces bugs by ~30%
+
+🎯 HIGH PRIORITY (This week):
+  1. Refactor input_mapper.py::map_gesture_to_action() (2.5h)
+     └─ Break into: validate_gesture(), map_coordinates(), create_action()
+  
+  2. Refactor websocket_server.py high-complexity functions (2h)
+     └─ Extract: frame_processor.py, action_handler.py
+
+  3. Modernize camera_test.js (30 min)
+     └─ Replace all `window` with `globalThis`, add optional chaining
+
+  Impact: Reduces cognitive complexity significantly, resolves critical issues
+
+📊 MEDIUM PRIORITY (Next 2 weeks):
+  1. Add test coverage for core modules (6-8h)
+     └─ Priority: input_mapper, websocket_server, game_engine
+  
+  2. Modernize JavaScript codebase (2h)
+     └─ node: imports, for...of loops, optional chaining
+
+  3. Clean up dead code (30 min)
+     └─ Remove commented code, unused variables
+
+  Impact: Improves maintainability, gets closer to Quality Gate
+
+📈 LONG TERM (Next month):
+  1. Reduce all code smells to < 20 (3h)
+  2. Achieve 80% test coverage (4-6h)
+  3. Set up CI/CD with SonarQube (2h)
+  4. Configure pre-commit hooks with SonarLint (1h)
+
+================================================================================
+  COVERAGE GAPS (CRITICAL)
+================================================================================
+
+⚠️  No test coverage detected in any module
+
+High-risk modules without tests:
+  🔴 input_mapper.py - Core gesture processing (56 complexity)
+  🔴 websocket_server.py - Network communication (35 complexity)
+  🔴 game_engine.py - Game logic (19 complexity)
+  🔴 camera_manager.py - Camera handling (16 complexity)
+  🔴 Board.js - UI board management
+  🔴 GameManager.js - Game state management
+
+Recommendation:
+  1. Install pytest (Python) and Jest (JavaScript)
+  2. Write unit tests for high-complexity functions first
+  3. Target 70% coverage initially, then increase to 80%
+  4. Add coverage reports to next scan:
+     └─ Python: coverage run -m pytest && coverage xml
+     └─ JavaScript: jest --coverage
+
+================================================================================
+  NEXT SCAN CHECKLIST
+================================================================================
+
+Before next scan:
+  ☐ Fix quick wins (bare except, Promise rejection, f-strings)
+  ☐ Refactor at least 1 high-complexity function (input_mapper.py recommended)
+  ☐ Add tests for at least 1 core module
+  ☐ Generate and include coverage reports
+  ☐ Clean up camera_test.js (replace window → globalThis)
+  ☐ Remove commented code (line 363 in advanced_hand_tracker.py)
+
+Expected improvements if checklist completed:
+  • Issues: 60 → ~45 (-25%)
+  • Technical debt: 5h 18min → ~3h 30min (-34%)
+  • Bugs: 7 → 2-3 (-60%)
+  • Coverage: 0% → 30-40%
+  • Quality Gate: FAILED → Potentially PASSED
+
+================================================================================
+  SCAN COMPLETE - UPDATED ANALYSIS
+================================================================================
+
+View results at: http://localhost:9000/dashboard?id=Gustavo-Eduardo_checkers
+Project: Gustavo-Eduardo_checkers
+Version: 1.0
+Analysis time: 15.421s
+Status: ✅ ANALYSIS SUCCESS (Quality Gate: FAILED)
+
+Summary:
+  📊 Total Issues: 60 (-1 from last scan)
+  🔴 Bugs: 7
+  🔵 Code Smells: 53
+  ⏱️  Technical Debt: 5h 18min
+  📈 Cognitive Complexity (max): 56 (input_mapper.py)
+  📉 Test Coverage: 0%
+
+Next recommended action:
+  → Fix quick wins to reduce bugs by 30% (est. 30 minutes)
+  → Start refactoring input_mapper.py (highest complexity)
+
+Run again after fixes:
+  sonar-scanner -Dsonar.login=<TOKEN>
