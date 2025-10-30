@@ -259,7 +259,7 @@ class InputMapper:
         NOTE: screen_pos is in normalized coordinates (0-1), not pixel coordinates!
         """
         if not screen_pos:
-            logger.debug(f"INPUT_MAPPER: _screen_to_board_coords - screen_pos is None")
+            logger.debug("INPUT_MAPPER: _screen_to_board_coords - screen_pos is None")
             return None
             
         norm_x, norm_y = screen_pos  # These are 0-1 normalized coordinates
