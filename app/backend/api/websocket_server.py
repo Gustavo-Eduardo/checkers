@@ -223,10 +223,7 @@ class GameWebSocketServer:
         self.camera_active = False
         if self.processing_task:
             self.processing_task.cancel()
-            try:
-                await self.processing_task
-            except asyncio.CancelledError:
-                pass
+            await self.processing_task
         self.camera_manager.stop()
         logger.info("Camera processing stopped")
         
